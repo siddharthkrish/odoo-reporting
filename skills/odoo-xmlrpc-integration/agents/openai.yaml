@@ -1,0 +1,3 @@
+interface:
+  display_name: "Odoo Xmlrpc Integration"
+  short_description: "Help with Odoo Xmlrpc Integration tasks"
