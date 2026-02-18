@@ -6,10 +6,12 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "python-dotenv>=1.0.0",
+  "fastapi[standard]>=0.115.0",
 ]
 
 [project.scripts]
 odoo-sales = "odoo_sales.cli:main"
+odoo-sales-web = "odoo_sales.web:main"
 
 [build-system]
 requires = ["hatchling"]
