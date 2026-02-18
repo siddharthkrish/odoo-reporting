@@ -3,312 +3,697 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Odoo Sales Report</title>
+  <title>Sales Report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #f5f6fa;
-      color: #1a1a2e;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #edecf3;
       min-height: 100vh;
-    }
-
-    header {
-      background: #1a1a2e;
-      color: #fff;
-      padding: 1.25rem 2rem;
-    }
-    header h1 { font-size: 1.25rem; font-weight: 600; }
-
-    main { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; }
-
-    /* Controls */
-    .controls {
-      background: #fff;
-      border-radius: 10px;
-      padding: 1.25rem 1.5rem;
       display: flex;
-      align-items: flex-end;
-      gap: 1rem;
-      flex-wrap: wrap;
-      box-shadow: 0 1px 4px rgba(0,0,0,.08);
-      margin-bottom: 1.5rem;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 2rem 1.25rem 3rem;
     }
-    .field { display: flex; flex-direction: column; gap: .35rem; }
-    label { font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: #666; }
-    input[type="date"] {
-      padding: .5rem .75rem;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      font-size: .95rem;
-      color: #1a1a2e;
+
+    /* ── Shell ── */
+    .dashboard {
+      width: 100%;
+      max-width: 1160px;
       background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 8px 48px rgba(0,0,0,.07);
+      display: flex;
+      overflow: hidden;
+      min-height: 680px;
     }
-    input[type="date"]:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
 
-    button#fetch {
-      padding: .55rem 1.4rem;
-      background: #6366f1;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      font-size: .95rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background .15s;
-      white-space: nowrap;
+    /* ── Main panel ── */
+    .main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 1.6rem 2rem 2rem;
     }
-    button#fetch:hover { background: #4f46e5; }
-    button#fetch:disabled { background: #a5b4fc; cursor: not-allowed; }
 
-    /* Summary cards */
-    .summary {
+    /* Topbar */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.6rem;
+    }
+    .topbar-left { display: flex; align-items: center; gap: .7rem; }
+
+    .menu-btn {
+      background: none; border: none; cursor: pointer; color: #b0b7c3;
+      display: flex; align-items: center; padding: .2rem; flex-shrink: 0;
+    }
+    .menu-btn:hover { color: #6b7280; }
+
+    .brand { display: flex; align-items: center; gap: .5rem; }
+    .brand-icon {
+      width: 30px; height: 30px; background: #22c55e; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .brand-name { font-size: .95rem; font-weight: 700; color: #111827; letter-spacing: -.01em; }
+
+    .topbar-right { display: flex; align-items: center; gap: .65rem; }
+    .user-chip { display: flex; align-items: center; gap: .45rem; }
+    .user-avatar {
+      width: 30px; height: 30px; border-radius: 50%; background: #ede9fe;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .7rem; font-weight: 700; color: #7c3aed; overflow: hidden;
+      border: 1.5px solid #ddd6fe;
+    }
+    .user-name { font-size: .83rem; font-weight: 500; color: #374151; }
+
+    .btn-fetch {
+      display: flex; align-items: center; gap: .35rem;
+      background: #111; color: #fff; border: none; cursor: pointer;
+      padding: .48rem 1rem; border-radius: 8px;
+      font-size: .82rem; font-weight: 600; font-family: inherit;
+      transition: background .15s; white-space: nowrap; flex-shrink: 0;
+    }
+    .btn-fetch:hover { background: #333; }
+    .btn-fetch:disabled { background: #9ca3af; cursor: not-allowed; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn-fetch .spinner { animation: spin .7s linear infinite; }
+
+    /* Page header */
+    .page-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.25rem;
+    }
+    .page-title { font-size: 1.8rem; font-weight: 700; color: #111827; letter-spacing: -.02em; }
+
+    .date-row { display: flex; align-items: center; gap: .45rem; }
+    .date-row input[type="date"] {
+      padding: .38rem .7rem; border: 1px solid #e5e7eb; border-radius: 8px;
+      font-size: .8rem; font-family: inherit; color: #374151; background: #fff;
+      cursor: pointer; outline: none; transition: border-color .15s;
+    }
+    .date-row input[type="date"]:focus { border-color: #4f5af6; }
+    .date-sep { font-size: .75rem; color: #d1d5db; }
+
+    /* Error banner */
+    #error-msg {
+      display: none; background: #fef2f2; border: 1px solid #fecaca;
+      border-radius: 8px; padding: .7rem 1rem; color: #991b1b;
+      font-size: .82rem; margin-bottom: 1.1rem;
+    }
+
+    /* Stat cards */
+    .stat-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 1rem;
+      grid-template-columns: repeat(4, 1fr);
+      gap: .75rem;
       margin-bottom: 1.5rem;
     }
-    .card {
-      background: #fff;
-      border-radius: 10px;
-      padding: 1.1rem 1.25rem;
-      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    .stat-card {
+      border: 1px solid #f0f0f7; border-radius: 10px; padding: .9rem 1.05rem;
     }
-    .card .label { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #9ca3af; margin-bottom: .3rem; }
-    .card .value { font-size: 1.6rem; font-weight: 700; color: #1a1a2e; }
+    .stat-lbl { font-size: .7rem; color: #9ca3af; font-weight: 500; margin-bottom: .35rem; }
+    .stat-val { font-size: 1.3rem; font-weight: 700; color: #111827; margin-bottom: .25rem; line-height: 1; }
+    .stat-sub { font-size: .7rem; font-weight: 500; color: #9ca3af; display: flex; align-items: center; gap: .2rem; }
+    .stat-sub.up   { color: #16a34a; }
+    .stat-sub.down { color: #dc2626; }
 
-    /* Chart */
-    .chart-box {
-      background: #fff;
-      border-radius: 10px;
-      padding: 1.25rem 1.5rem;
-      box-shadow: 0 1px 4px rgba(0,0,0,.08);
-      margin-bottom: 1.5rem;
-    }
-    #chart { width: 100%; height: 340px; }
+    /* Revenue section */
+    .section-hd { font-size: .85rem; font-weight: 600; color: #111827; margin-bottom: .85rem; }
 
-    /* Table */
-    .table-box {
-      background: #fff;
-      border-radius: 10px;
-      padding: 1.25rem 1.5rem;
-      box-shadow: 0 1px 4px rgba(0,0,0,.08);
-      overflow-x: auto;
+    .revenue-row {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      margin-bottom: .9rem;
     }
-    .table-box h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; }
-    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
-    th {
-      text-align: left;
-      padding: .6rem .75rem;
-      font-size: .75rem;
-      text-transform: uppercase;
-      letter-spacing: .05em;
-      color: #9ca3af;
-      border-bottom: 2px solid #f3f4f6;
-    }
-    td { padding: .65rem .75rem; border-bottom: 1px solid #f3f4f6; }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: #fafafa; }
-    .amount { font-variant-numeric: tabular-nums; text-align: right; }
-    th.amount { text-align: right; }
+    .revenue-metrics { display: flex; gap: 1.75rem; }
+    .rev-metric { display: flex; align-items: flex-start; gap: .45rem; }
+    .rev-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: .4rem; flex-shrink: 0; }
+    .rev-dot.blue { background: #4f5af6; }
+    .rev-dot.gray { background: #d1d5db; }
+    .rev-lbl { font-size: .68rem; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .2rem; }
+    .rev-val { font-size: 1.15rem; font-weight: 700; color: #111827; letter-spacing: -.01em; }
+    .rev-sub { font-size: .7rem; font-weight: 500; color: #9ca3af; margin-top: .1rem; }
+    .rev-sub.up   { color: #16a34a; }
+    .rev-sub.down { color: #dc2626; }
 
-    /* States */
-    #status {
-      text-align: center;
-      padding: 2rem;
-      color: #6b7280;
-      font-size: .95rem;
-      display: none;
+    #main-chart { width: 100%; height: 195px; }
+
+    /* Placeholder for chart before data loads */
+    .chart-placeholder {
+      height: 195px; border: 1.5px dashed #f0f0f7; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      color: #c9cdd6; font-size: .82rem; gap: .5rem;
     }
-    #error {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      color: #991b1b;
-      border-radius: 8px;
-      padding: .85rem 1.1rem;
-      margin-bottom: 1.5rem;
-      display: none;
-      font-size: .9rem;
+
+    /* Transactions */
+    .tx-section { margin-top: 1.4rem; }
+    .tx-empty {
+      text-align: center; padding: 2.5rem 1rem;
+      color: #c9cdd6; font-size: .85rem;
     }
-    .hidden { display: none !important; }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      font-size: .68rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .07em; color: #9ca3af;
+      padding: 0 .8rem .55rem; text-align: left;
+      border-bottom: 1px solid #f4f4f9;
+    }
+    thead th.r { text-align: right; }
+    tbody td {
+      padding: .6rem .8rem; border-bottom: 1px solid #f7f7fb;
+      vertical-align: middle; font-size: .82rem; color: #374151;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #fafafa; }
+    .td-r { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: #111827; }
+
+    .customer-cell { display: flex; align-items: center; gap: .6rem; }
+    .av {
+      width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .68rem; font-weight: 700; color: #fff;
+    }
+    .badge {
+      display: inline-flex; align-items: center; gap: .2rem;
+      padding: .18rem .55rem; border-radius: 20px; font-size: .7rem; font-weight: 600;
+    }
+    .badge.ok  { background: #f0fdf4; color: #16a34a; }
+    .badge.err { background: #fef2f2; color: #dc2626; }
+
+    .ch-tag {
+      display: inline-block; padding: .1rem .45rem; border-radius: 4px;
+      font-size: .65rem; font-weight: 600; letter-spacing: .02em; margin-top: .2rem;
+    }
+    .ch-lazada   { background: #fff0f0; color: #e11d48; }
+    .ch-website  { background: #eff6ff; color: #2563eb; }
+    .ch-shopee   { background: #fff7ed; color: #ea580c; }
+    .ch-amazon   { background: #fffbeb; color: #d97706; }
+    .ch-default  { background: #f5f3ff; color: #7c3aed; }
+
+    /* ── Right panel ── */
+    .sidebar {
+      width: 264px; flex-shrink: 0;
+      border-left: 1px solid #f0f0f7;
+      padding: 1.6rem 1.3rem;
+      display: flex; flex-direction: column; gap: .9rem;
+    }
+    .sidebar.hidden { display: none; }
+
+    .panel-hd { display: flex; align-items: center; justify-content: space-between; }
+    .panel-title { font-size: .95rem; font-weight: 700; color: #111827; }
+    .panel-close {
+      background: none; border: none; cursor: pointer;
+      color: #b0b7c3; font-size: .75rem; padding: .15rem; line-height: 1;
+      border-radius: 4px; transition: color .15s;
+    }
+    .panel-close:hover { color: #374151; }
+
+    .panel-tabs {
+      display: flex; gap: .1rem;
+      background: #f5f5fb; padding: .18rem; border-radius: 9px;
+    }
+    .p-tab {
+      flex: 1; background: none; border: none; cursor: pointer;
+      padding: .28rem .2rem; font-size: .71rem; font-weight: 500;
+      color: #9ca3af; border-radius: 7px; font-family: inherit;
+      transition: all .15s; white-space: nowrap;
+    }
+    .p-tab.on { background: #fff; color: #111827; font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,.07); }
+
+    .panel-amount { font-size: 2rem; font-weight: 700; color: #111827; letter-spacing: -.02em; line-height: 1.1; }
+    .panel-desc { font-size: .73rem; color: #9ca3af; line-height: 1.55; }
+
+    #sparkline { width: 100%; height: 86px; }
+    .spark-placeholder {
+      height: 86px; border: 1.5px dashed #f0f0f7; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #d1d5db; font-size: .75rem;
+    }
+
+    .breakdown { flex: 1; min-height: 0; }
+    .breakdown-hd {
+      font-size: .78rem; font-weight: 600; color: #111827;
+      margin-bottom: .55rem;
+    }
+    .bk-item {
+      display: flex; align-items: center; gap: .55rem;
+      padding: .38rem 0; border-bottom: 1px solid #f7f7fb;
+    }
+    .bk-item:last-child { border-bottom: none; }
+    .bk-bar { width: 3px; height: 20px; border-radius: 2px; flex-shrink: 0; }
+    .bk-name { font-size: .78rem; color: #374151; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bk-amt { font-size: .78rem; font-weight: 600; color: #111827; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+    .panel-footer { display: flex; gap: .45rem; margin-top: auto; padding-top: .5rem; }
+    .btn-outline {
+      flex: 1; padding: .48rem; border: 1px solid #e5e7eb; border-radius: 8px;
+      background: none; font-size: .78rem; font-weight: 600; color: #374151;
+      cursor: pointer; font-family: inherit; transition: background .15s;
+    }
+    .btn-outline:hover { background: #f9fafb; }
+    .btn-dark {
+      flex: 1; padding: .48rem; background: #111; border: none; border-radius: 8px;
+      font-size: .78rem; font-weight: 600; color: #fff; cursor: pointer; font-family: inherit;
+      transition: background .15s;
+    }
+    .btn-dark:hover { background: #333; }
   </style>
 </head>
 <body>
+<div class="dashboard">
 
-<header>
-  <h1>Odoo Sales Report</h1>
-</header>
+  <!-- ── Main ── -->
+  <div class="main">
 
-<main>
-  <div class="controls">
-    <div class="field">
-      <label for="date-from">From</label>
-      <input type="date" id="date-from" />
+    <nav class="topbar">
+      <div class="topbar-left">
+        <button class="menu-btn" aria-label="Menu">
+          <svg width="18" height="13" viewBox="0 0 18 13" fill="none">
+            <rect width="18" height="2" rx="1" fill="currentColor"/>
+            <rect y="5.5" width="12" height="2" rx="1" fill="currentColor"/>
+            <rect y="11" width="18" height="2" rx="1" fill="currentColor"/>
+          </svg>
+        </button>
+        <div class="brand">
+          <div class="brand-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 2L13 5V11L8 14L3 11V5L8 2Z" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+              <circle cx="8" cy="8" r="2" fill="white"/>
+            </svg>
+          </div>
+          <span class="brand-name">Sales</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="user-chip">
+          <div class="user-avatar">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <circle cx="7" cy="5" r="2.5" fill="#7c3aed"/>
+              <path d="M2 12c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="#7c3aed" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="user-name">Admin</span>
+        </div>
+        <button class="btn-fetch" id="fetch-btn" onclick="fetchSales()">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path d="M5 1v8M1 5h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          Fetch Data
+        </button>
+      </div>
+    </nav>
+
+    <div class="page-header">
+      <h1 class="page-title">Overview</h1>
+      <div class="date-row">
+        <input type="date" id="date-from" />
+        <span class="date-sep">→</span>
+        <input type="date" id="date-to" />
+      </div>
     </div>
-    <div class="field">
-      <label for="date-to">To</label>
-      <input type="date" id="date-to" />
+
+    <div id="error-msg"></div>
+
+    <!-- Stat cards -->
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-lbl">Total Orders</div>
+        <div class="stat-val" id="sv-orders">—</div>
+        <div class="stat-sub" id="ss-orders">Select a range</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-lbl">Total Revenue</div>
+        <div class="stat-val" id="sv-revenue">—</div>
+        <div class="stat-sub" id="ss-revenue">Select a range</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-lbl">Avg. Order Value</div>
+        <div class="stat-val" id="sv-avg">—</div>
+        <div class="stat-sub" id="ss-avg">Select a range</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-lbl">Customers</div>
+        <div class="stat-val" id="sv-customers">—</div>
+        <div class="stat-sub" id="ss-customers">Select a range</div>
+      </div>
     </div>
-    <button id="fetch">Fetch</button>
+
+    <!-- Revenue chart -->
+    <div class="section-hd">Revenue</div>
+    <div class="revenue-row">
+      <div class="revenue-metrics">
+        <div class="rev-metric">
+          <span class="rev-dot blue"></span>
+          <div>
+            <div class="rev-lbl">Gross Volume</div>
+            <div class="rev-val" id="rv-total">$—</div>
+            <div class="rev-sub" id="rv-total-sub">—</div>
+          </div>
+        </div>
+        <div class="rev-metric">
+          <span class="rev-dot gray"></span>
+          <div>
+            <div class="rev-lbl">Avg. Order</div>
+            <div class="rev-val" id="rv-avg">$—</div>
+            <div class="rev-sub" id="rv-avg-sub">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="chart-wrap">
+      <div class="chart-placeholder" id="chart-placeholder">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 13l4-5 3 3 3-4 2 2" stroke="#d1d5db" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Fetch data to see the chart
+      </div>
+      <div id="main-chart" style="display:none"></div>
+    </div>
+
+    <!-- Transactions -->
+    <div class="tx-section">
+      <div class="section-hd" style="margin-top:1.4rem">Transactions</div>
+      <div id="tx-container">
+        <div class="tx-empty">Fetch data to see transactions</div>
+      </div>
+    </div>
+
   </div>
 
-  <div id="error"></div>
-  <p id="status">Loading…</p>
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar" id="sidebar">
 
-  <div id="results" class="hidden">
-    <div class="summary">
-      <div class="card">
-        <div class="label">Orders</div>
-        <div class="value" id="stat-count">—</div>
-      </div>
-      <div class="card">
-        <div class="label">Total Revenue</div>
-        <div class="value" id="stat-total">—</div>
-      </div>
-      <div class="card">
-        <div class="label">Avg. Order Value</div>
-        <div class="value" id="stat-avg">—</div>
+    <div class="panel-hd">
+      <span class="panel-title">Period Summary</span>
+      <button class="panel-close" onclick="closeSidebar()" title="Close">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="panel-tabs">
+      <button class="p-tab on" data-tab="revenue" onclick="switchTab(this)">Revenue</button>
+      <button class="p-tab" data-tab="orders" onclick="switchTab(this)">Orders</button>
+      <button class="p-tab" data-tab="customers" onclick="switchTab(this)">Customers</button>
+    </div>
+
+    <div class="panel-amount" id="panel-amount">$0.00</div>
+    <p class="panel-desc" id="panel-desc">Select a date range and fetch data to see the period summary.</p>
+
+    <div id="sparkline-wrap">
+      <div class="spark-placeholder" id="spark-placeholder">No data</div>
+      <div id="sparkline" style="display:none"></div>
+    </div>
+
+    <div class="breakdown">
+      <div class="breakdown-hd">Sales by Channel</div>
+      <div id="bk-list">
+        <div style="font-size:.75rem;color:#c9cdd6;padding:.4rem 0">No data yet</div>
       </div>
     </div>
 
-    <div class="chart-box">
-      <div id="chart"></div>
+    <div class="panel-footer">
+      <button class="btn-outline" onclick="exportCSV()">Export</button>
+      <button class="btn-dark" onclick="exportCSV()">Download</button>
     </div>
 
-    <div class="table-box">
-      <h2>Orders</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Order</th>
-            <th>Date</th>
-            <th>Customer</th>
-            <th class="amount">Amount</th>
-            <th>Currency</th>
-          </tr>
-        </thead>
-        <tbody id="table-body"></tbody>
-      </table>
-    </div>
-  </div>
-</main>
+  </aside>
+</div>
 
 <script>
-  // Default date range: current month
+  /* ── Palettes ── */
+  const AV_COLORS  = ['#6366f1','#f59e0b','#10b981','#06b6d4','#ec4899','#8b5cf6','#ef4444','#14b8a6','#f97316','#84cc16'];
+  const BAR_COLORS = ['#4f5af6','#f59e0b','#10b981','#06b6d4','#8b5cf6','#ec4899'];
+
+  /* ── State ── */
+  let orders = [];
+  let activeTab = 'revenue';
+
+  /* ── Init date defaults ── */
   const today = new Date();
-  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  document.getElementById('date-from').value = isoDate(firstOfMonth);
-  document.getElementById('date-to').value = isoDate(today);
+  const first = new Date(today.getFullYear(), today.getMonth(), 1);
+  document.getElementById('date-from').value = iso(first);
+  document.getElementById('date-to').value   = iso(today);
 
-  document.getElementById('fetch').addEventListener('click', fetchSales);
-
+  /* ── Fetch ── */
   async function fetchSales() {
     const from = document.getElementById('date-from').value;
-    const to = document.getElementById('date-to').value;
-
-    if (!from || !to) { showError('Please select both a start and end date.'); return; }
-    if (from > to) { showError('Start date must be before end date.'); return; }
-
-    setLoading(true);
-    hideError();
-
+    const to   = document.getElementById('date-to').value;
+    if (!from || !to)  { showErr('Please select both dates.'); return; }
+    if (from > to)     { showErr('Start date must be before end date.'); return; }
+    hideErr();
+    setBusy(true);
     try {
-      const res = await fetch(`/api/sales?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+      const res  = await fetch(`/api/sales?from=${enc(from)}&to=${enc(to)}`);
       const data = await res.json();
-      if (!res.ok) { showError(data.detail || 'An error occurred.'); return; }
+      if (!res.ok) { showErr(data.detail || 'Server error.'); return; }
+      orders = data;
       render(data);
-    } catch (err) {
-      showError('Network error — is the server running?');
-    } finally {
-      setLoading(false);
-    }
+    } catch { showErr('Network error — is the server running?'); }
+    finally  { setBusy(false); }
   }
 
-  function render(orders) {
-    document.getElementById('results').classList.remove('hidden');
+  /* ── Render all ── */
+  function render(data) {
+    updateStats(data);
+    renderChart(data);
+    renderTable(data);
+    updatePanel(data);
+  }
 
-    // Summary stats
-    const total = orders.reduce((s, o) => s + o.amount_total, 0);
-    const avg = orders.length ? total / orders.length : 0;
-    document.getElementById('stat-count').textContent = orders.length.toLocaleString();
-    document.getElementById('stat-total').textContent = formatAmount(total);
-    document.getElementById('stat-avg').textContent = formatAmount(avg);
+  /* ── Stats ── */
+  function updateStats(data) {
+    const total     = data.reduce((s, o) => s + o.amount_total, 0);
+    const avg       = data.length ? total / data.length : 0;
+    const customers = new Set(data.map(o => o.partner_name).filter(Boolean)).size;
 
-    // Chart — aggregate by date
+    set('sv-orders',    data.length.toLocaleString());
+    set('sv-revenue',   '$' + fmt(total));
+    set('sv-avg',       '$' + fmt(avg));
+    set('sv-customers', customers.toLocaleString());
+    setSub('ss-orders',    data.length + ' total', 'neutral');
+    setSub('ss-revenue',   'for selected period',  'neutral');
+    setSub('ss-avg',       'per order',            'neutral');
+    setSub('ss-customers', customers + ' unique',  'neutral');
+
+    set('rv-total',     '$' + fmt(total));
+    set('rv-avg',       '$' + fmt(avg));
+    set('rv-total-sub', data.length + ' orders in range');
+    set('rv-avg-sub',   'per order value');
+  }
+
+  /* ── Main chart ── */
+  function renderChart(data) {
     const byDate = {};
-    for (const o of orders) {
-      const day = o.date_order.slice(0, 10);
-      byDate[day] = (byDate[day] || 0) + o.amount_total;
+    for (const o of data) {
+      const d = o.date_order.slice(0, 10);
+      byDate[d] = (byDate[d] || 0) + o.amount_total;
     }
-    const dates = Object.keys(byDate).sort();
+    const dates   = Object.keys(byDate).sort();
     const amounts = dates.map(d => byDate[d]);
 
-    Plotly.react('chart', [{
-      type: 'bar',
-      x: dates,
-      y: amounts,
-      marker: { color: '#6366f1' },
-      hovertemplate: '<b>%{x}</b><br>%{y:,.2f}<extra></extra>',
-    }], {
-      margin: { t: 20, r: 20, b: 50, l: 70 },
-      xaxis: { type: 'date', tickformat: '%b %d', gridcolor: '#f3f4f6' },
-      yaxis: { tickformat: ',.0f', gridcolor: '#f3f4f6' },
-      plot_bgcolor: '#fff',
-      paper_bgcolor: '#fff',
-      font: { family: 'system-ui, -apple-system, sans-serif', size: 12, color: '#6b7280' },
+    // Rolling average as second line
+    const win      = Math.max(1, Math.floor(dates.length / 5));
+    const smoothed = amounts.map((_, i) => {
+      const sl = amounts.slice(Math.max(0, i - win), i + win + 1);
+      return sl.reduce((a, b) => a + b, 0) / sl.length;
+    });
+
+    show('main-chart'); hide('chart-placeholder');
+
+    Plotly.react('main-chart', [
+      {
+        type: 'scatter', mode: 'lines',
+        x: dates, y: amounts,
+        fill: 'tozeroy', fillcolor: 'rgba(79,90,246,.06)',
+        line: { color: '#4f5af6', width: 2, shape: 'spline', smoothing: 1.3 },
+        hovertemplate: '<b>%{x|%b %d}</b>  $%{y:,.2f}<extra></extra>',
+        name: 'Daily'
+      },
+      {
+        type: 'scatter', mode: 'lines',
+        x: dates, y: smoothed,
+        line: { color: '#d1d5db', width: 1.5, shape: 'spline', smoothing: 1.3 },
+        hovertemplate: '<b>%{x|%b %d}</b>  $%{y:,.2f}<extra></extra>',
+        name: 'Trend'
+      }
+    ], {
+      margin: { t: 6, r: 6, b: 36, l: 58 },
+      xaxis: {
+        type: 'date', tickformat: '%b %d', gridcolor: '#f5f5fb',
+        linecolor: 'transparent', tickcolor: 'transparent',
+        tickfont: { size: 10, color: '#b0b7c3', family: 'Inter' }
+      },
+      yaxis: {
+        tickformat: ',.0f', gridcolor: '#f5f5fb',
+        linecolor: 'transparent', tickcolor: 'transparent',
+        tickfont: { size: 10, color: '#b0b7c3', family: 'Inter' }, zeroline: false
+      },
+      plot_bgcolor: '#fff', paper_bgcolor: '#fff',
+      showlegend: false, hovermode: 'x unified',
+      hoverlabel: { bgcolor: '#111', bordercolor: '#111', font: { color: '#fff', size: 11, family: 'Inter' } }
     }, { responsive: true, displayModeBar: false });
 
-    // Table
-    const tbody = document.getElementById('table-body');
-    tbody.innerHTML = '';
-    if (orders.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:2rem">No orders found for this period.</td></tr>';
+    /* Sparkline */
+    show('sparkline'); hide('spark-placeholder');
+    Plotly.react('sparkline', [{
+      type: 'scatter', mode: 'lines',
+      x: dates, y: amounts,
+      fill: 'tozeroy', fillcolor: 'rgba(79,90,246,.06)',
+      line: { color: '#4f5af6', width: 1.5, shape: 'spline', smoothing: 1.3 },
+      hoverinfo: 'skip'
+    }], {
+      margin: { t: 2, r: 2, b: 20, l: 2 },
+      xaxis: {
+        type: 'date', tickformat: '%b %d', nticks: 3,
+        tickfont: { size: 9, color: '#b0b7c3', family: 'Inter' },
+        gridcolor: 'transparent', linecolor: 'transparent', tickcolor: 'transparent'
+      },
+      yaxis: { visible: false, zeroline: false },
+      plot_bgcolor: 'transparent', paper_bgcolor: 'transparent', showlegend: false
+    }, { responsive: true, displayModeBar: false });
+  }
+
+  /* ── Channel tag helper ── */
+  function channelTag(ch) {
+    const map = { Lazada: 'ch-lazada', Website: 'ch-website', Shopee: 'ch-shopee', Amazon: 'ch-amazon' };
+    const cls = map[ch] || 'ch-default';
+    return `<span class="ch-tag ${cls}">${esc(ch)}</span>`;
+  }
+
+  /* ── Table ── */
+  function renderTable(data) {
+    const wrap = document.getElementById('tx-container');
+    if (!data.length) {
+      wrap.innerHTML = '<div class="tx-empty">No orders found for this period.</div>';
       return;
     }
-    for (const o of orders) {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${esc(o.name)}</td>
-        <td>${o.date_order.slice(0, 10)}</td>
-        <td>${esc(o.partner_name || '—')}</td>
-        <td class="amount">${formatAmount(o.amount_total)}</td>
-        <td>${esc(o.currency_name || '—')}</td>
-      `;
-      tbody.appendChild(tr);
+    const rows = data.slice(0, 60).map((o, i) => {
+      const ch    = o.channel || o.partner_name || '—';
+      const init  = ch[0].toUpperCase();
+      const color = avatarColor(ch);
+      const date  = o.date_order.slice(0, 10);
+      return `<tr>
+        <td><div class="customer-cell">
+          <div class="av" style="background:${color}">${esc(init)}</div>
+          <div style="display:flex;flex-direction:column;gap:.1rem">
+            <span>${esc(o.partner_name || '—')}</span>
+            ${channelTag(ch)}
+          </div>
+        </div></td>
+        <td style="color:#6b7280">${esc(o.name)}</td>
+        <td><span class="badge ok">● Confirmed</span></td>
+        <td style="color:#6b7280">${date}</td>
+        <td class="td-r">$${fmt(o.amount_total)}</td>
+      </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `<table>
+      <thead><tr>
+        <th>Customer</th><th>Order</th><th>Status</th><th>Date</th><th class="r">Amount</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }
+
+  /* ── Right panel ── */
+  function updatePanel(data) {
+    const total     = data.reduce((s, o) => s + o.amount_total, 0);
+    const avg       = data.length ? total / data.length : 0;
+    const customers = new Set(data.map(o => o.partner_name).filter(Boolean)).size;
+
+    if (activeTab === 'revenue') {
+      set('panel-amount', '$' + fmt(total));
+      set('panel-desc',   `Total revenue across ${data.length} order${data.length !== 1 ? 's' : ''} in the selected period.`);
+    } else if (activeTab === 'orders') {
+      set('panel-amount', data.length.toLocaleString());
+      set('panel-desc',   `Orders placed in the selected period with an average value of $${fmt(avg)}.`);
+    } else {
+      set('panel-amount', customers.toLocaleString());
+      set('panel-desc',   `Unique customers with at least one order in the selected period.`);
     }
+
+    renderBreakdown(data);
   }
 
-  function formatAmount(n) {
-    return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function renderBreakdown(data) {
+    const by = {};
+    for (const o of data) {
+      const n = o.channel || o.partner_name || 'Unknown';
+      by[n] = (by[n] || 0) + o.amount_total;
+    }
+    const sorted = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const list = document.getElementById('bk-list');
+    if (!sorted.length) {
+      list.innerHTML = '<div style="font-size:.75rem;color:#c9cdd6;padding:.4rem 0">No data</div>';
+      return;
+    }
+    list.innerHTML = sorted.map(([name, amt], i) => `
+      <div class="bk-item">
+        <div class="bk-bar" style="background:${BAR_COLORS[i % BAR_COLORS.length]}"></div>
+        <span class="bk-name" title="${esc(name)}">${esc(name)}</span>
+        <span class="bk-amt">$${fmt(amt)}</span>
+      </div>`).join('');
   }
 
-  function esc(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  /* ── Tab switch ── */
+  function switchTab(btn) {
+    document.querySelectorAll('.p-tab').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    activeTab = btn.dataset.tab;
+    if (orders.length) updatePanel(orders);
   }
 
-  function isoDate(d) {
-    return d.toISOString().slice(0, 10);
+  /* ── Sidebar toggle ── */
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.add('hidden');
   }
 
-  function setLoading(on) {
-    const btn = document.getElementById('fetch');
-    const status = document.getElementById('status');
+  /* ── Export ── */
+  function exportCSV() {
+    if (!orders.length) { showErr('No data to export.'); return; }
+    const header = ['Order', 'Date', 'Customer', 'Currency', 'Amount'];
+    const rows   = orders.map(o => [
+      `"${o.name}"`, o.date_order.slice(0, 10),
+      `"${(o.partner_name || '').replace(/"/g, '""')}"`,
+      o.currency_name || '', o.amount_total.toFixed(2)
+    ].join(','));
+    const blob = new Blob([[header.join(','), ...rows].join('\n')], { type: 'text/csv' });
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'sales-report.csv' });
+    a.click(); URL.revokeObjectURL(a.href);
+  }
+
+  /* ── Helpers ── */
+  function setBusy(on) {
+    const btn = document.getElementById('fetch-btn');
     btn.disabled = on;
-    btn.textContent = on ? 'Loading…' : 'Fetch';
-    status.style.display = on ? 'block' : 'none';
+    btn.innerHTML = on
+      ? `<svg class="spinner" width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.5" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/><path d="M6 1.5A4.5 4.5 0 0 1 10.5 6" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg> Loading…`
+      : `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5 1v8M1 5h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> Fetch Data`;
   }
 
-  function showError(msg) {
-    const el = document.getElementById('error');
-    el.textContent = msg;
-    el.style.display = 'block';
-    document.getElementById('results').classList.add('hidden');
-  }
+  function showErr(msg) { const e = document.getElementById('error-msg'); e.textContent = msg; e.style.display = 'block'; }
+  function hideErr()     { document.getElementById('error-msg').style.display = 'none'; }
 
-  function hideError() {
-    document.getElementById('error').style.display = 'none';
+  function show(id) { document.getElementById(id).style.display = ''; }
+  function hide(id) { document.getElementById(id).style.display = 'none'; }
+  function set(id, val) { document.getElementById(id).textContent = val; }
+  function setSub(id, text, cls) { const e = document.getElementById(id); e.textContent = text; e.className = 'stat-sub ' + cls; }
+  function enc(s) { return encodeURIComponent(s); }
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function iso(d) { return d.toISOString().slice(0, 10); }
+  function fmt(n) { return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+  function avatarColor(name) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+    return AV_COLORS[Math.abs(h) % AV_COLORS.length];
   }
 </script>
 </body>

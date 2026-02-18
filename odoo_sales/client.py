@@ -16,6 +16,11 @@ DEFAULT_FIELDS: tuple[str, ...] = (
     "amount_total",
     "partner_id",
     "currency_id",
+    # Channel detection fields
+    "lazada_order_id",
+    "woocommerce_order_id",
+    "shopee_order_id",
+    "origin",
 )
 
 
@@ -27,6 +32,7 @@ class SaleOrder:
     amount_total: float
     partner_name: str | None
     currency_name: str | None
+    channel: str
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -36,6 +42,7 @@ class SaleOrder:
             "amount_total": self.amount_total,
             "partner_name": self.partner_name,
             "currency_name": self.currency_name,
+            "channel": self.channel,
         }
 
 
@@ -137,6 +144,7 @@ def _sale_order_from_record(record: dict[str, Any]) -> SaleOrder:
 
     partner_name = _relational_name(record.get("partner_id"))
     currency_name = _relational_name(record.get("currency_id"))
+    channel = _detect_channel(record, partner_name)
 
     return SaleOrder(
         id=int(record.get("id")),
@@ -145,7 +153,22 @@ def _sale_order_from_record(record: dict[str, Any]) -> SaleOrder:
         amount_total=float(record.get("amount_total", 0.0)),
         partner_name=partner_name,
         currency_name=currency_name,
+        channel=channel,
     )
+
+
+def _detect_channel(record: dict[str, Any], partner_name: str | None) -> str:
+    if bool(record.get("lazada_order_id")):
+        return "Lazada"
+    woo_id = record.get("woocommerce_order_id")
+    if woo_id and woo_id is not False and int(woo_id) != 0:
+        return "Website"
+    if bool(record.get("shopee_order_id")):
+        return "Shopee"
+    origin = str(record.get("origin") or "")
+    if origin.lower().startswith("amazon"):
+        return "Amazon"
+    return partner_name or "Direct"
 
 
 def _relational_name(value: Any) -> str | None:
