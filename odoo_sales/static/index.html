@@ -264,6 +264,35 @@
       transition: background .15s;
     }
     .btn-dark:hover { background: #333; }
+
+    /* ── Compare toggle ── */
+    .compare-row {
+      display: flex; align-items: center; gap: .5rem;
+      margin-top: -.65rem; margin-bottom: 1.1rem;
+    }
+    .compare-label {
+      display: flex; align-items: center; gap: .4rem;
+      font-size: .78rem; color: #6b7280; cursor: pointer; user-select: none;
+    }
+    .compare-label input[type="checkbox"] {
+      width: 13px; height: 13px; accent-color: #4f5af6; cursor: pointer; flex-shrink: 0;
+    }
+    .compare-hint { font-size: .72rem; color: #b0b7c3; }
+
+    /* ── Delta chips ── */
+    .delta-up   { color: #16a34a; font-weight: 600; }
+    .delta-down { color: #dc2626; font-weight: 600; }
+
+    /* Panel overall delta row */
+    .panel-delta {
+      display: none; align-items: center; gap: .4rem;
+      font-size: .82rem; margin-top: -.45rem;
+    }
+    .panel-delta.on { display: flex; }
+    .panel-delta-vs { font-size: .7rem; color: #b0b7c3; font-weight: 400; }
+
+    /* Breakdown per-channel delta */
+    .bk-delta { font-size: .71rem; font-weight: 600; flex-shrink: 0; }
   </style>
 </head>
 <body>
@@ -313,10 +342,18 @@
     <div class="page-header">
       <h1 class="page-title">Overview</h1>
       <div class="date-row">
-        <input type="date" id="date-from" />
+        <input type="date" id="date-from" onchange="onDateChange()" />
         <span class="date-sep">→</span>
-        <input type="date" id="date-to" />
+        <input type="date" id="date-to" onchange="onDateChange()" />
       </div>
+    </div>
+
+    <div class="compare-row">
+      <label class="compare-label">
+        <input type="checkbox" id="compare-cb" onchange="onDateChange()" />
+        Compare with previous period
+      </label>
+      <span class="compare-hint" id="compare-hint"></span>
     </div>
 
     <div id="error-msg"></div>
@@ -404,6 +441,10 @@
     </div>
 
     <div class="panel-amount" id="panel-amount">$0.00</div>
+    <div class="panel-delta" id="panel-delta">
+      <span id="panel-delta-val"></span>
+      <span class="panel-delta-vs">vs previous period</span>
+    </div>
     <p class="panel-desc" id="panel-desc">Select a date range and fetch data to see the period summary.</p>
 
     <div id="sparkline-wrap">
@@ -432,7 +473,8 @@
   const BAR_COLORS = ['#4f5af6','#f59e0b','#10b981','#06b6d4','#8b5cf6','#ec4899'];
 
   /* ── State ── */
-  let orders = [];
+  let orders    = [];
+  let prevOrders = [];
   let activeTab = 'revenue';
 
   /* ── Init date defaults ── */
@@ -440,6 +482,20 @@
   const first = new Date(today.getFullYear(), today.getMonth(), 1);
   document.getElementById('date-from').value = iso(first);
   document.getElementById('date-to').value   = iso(today);
+
+  /* ── Date change: update compare hint ── */
+  function onDateChange() {
+    const from = document.getElementById('date-from').value;
+    const to   = document.getElementById('date-to').value;
+    const on   = document.getElementById('compare-cb').checked;
+    const hint = document.getElementById('compare-hint');
+    if (on && from && to && from <= to) {
+      const { prevFrom, prevTo } = calcPrevDates(from, to);
+      hint.textContent = `vs. ${fmtHint(prevFrom)} – ${fmtHint(prevTo)}`;
+    } else {
+      hint.textContent = '';
+    }
+  }
 
   /* ── Fetch ── */
   async function fetchSales() {
@@ -449,22 +505,29 @@
     if (from > to)     { showErr('Start date must be before end date.'); return; }
     hideErr();
     setBusy(true);
+    const comparing = document.getElementById('compare-cb').checked;
     try {
-      const res  = await fetch(`/api/sales?from=${enc(from)}&to=${enc(to)}`);
-      const data = await res.json();
-      if (!res.ok) { showErr(data.detail || 'Server error.'); return; }
-      orders = data;
-      render(data);
+      const reqs = [fetch(`/api/sales?from=${enc(from)}&to=${enc(to)}`)];
+      if (comparing) {
+        const { prevFrom, prevTo } = calcPrevDates(from, to);
+        reqs.push(fetch(`/api/sales?from=${enc(prevFrom)}&to=${enc(prevTo)}`));
+      }
+      const results = await Promise.all(reqs);
+      const data = await results[0].json();
+      if (!results[0].ok) { showErr(data.detail || 'Server error.'); return; }
+      orders     = data;
+      prevOrders = (comparing && results[1]?.ok) ? await results[1].json() : [];
+      render(data, prevOrders);
     } catch { showErr('Network error — is the server running?'); }
     finally  { setBusy(false); }
   }
 
   /* ── Render all ── */
-  function render(data) {
+  function render(data, prev = []) {
     updateStats(data);
     renderChart(data);
     renderTable(data);
-    updatePanel(data);
+    updatePanel(data, prev);
   }
 
   /* ── Stats ── */
@@ -603,43 +666,73 @@
   }
 
   /* ── Right panel ── */
-  function updatePanel(data) {
+  function updatePanel(data, prev = []) {
     const total     = data.reduce((s, o) => s + o.amount_total, 0);
     const avg       = data.length ? total / data.length : 0;
     const customers = new Set(data.map(o => o.partner_name).filter(Boolean)).size;
 
+    let currVal, prevVal;
     if (activeTab === 'revenue') {
+      currVal = total;
+      prevVal = prev.reduce((s, o) => s + o.amount_total, 0);
       set('panel-amount', '$' + fmt(total));
-      set('panel-desc',   `Total revenue across ${data.length} order${data.length !== 1 ? 's' : ''} in the selected period.`);
+      set('panel-desc', `Total revenue across ${data.length} order${data.length !== 1 ? 's' : ''} in the selected period.`);
     } else if (activeTab === 'orders') {
+      currVal = data.length;
+      prevVal = prev.length;
       set('panel-amount', data.length.toLocaleString());
-      set('panel-desc',   `Orders placed in the selected period with an average value of $${fmt(avg)}.`);
+      set('panel-desc', `Orders placed in the selected period with an average value of $${fmt(avg)}.`);
     } else {
+      currVal = customers;
+      prevVal = new Set(prev.map(o => o.partner_name).filter(Boolean)).size;
       set('panel-amount', customers.toLocaleString());
-      set('panel-desc',   `Unique customers with at least one order in the selected period.`);
+      set('panel-desc', `Unique customers with at least one order in the selected period.`);
     }
 
-    renderBreakdown(data);
+    // Overall delta badge
+    const dEl = document.getElementById('panel-delta');
+    if (prev.length > 0) {
+      const html = deltaHtml(currVal, prevVal);
+      if (html) {
+        document.getElementById('panel-delta-val').innerHTML = html;
+        dEl.classList.add('on');
+      } else {
+        dEl.classList.remove('on');
+      }
+    } else {
+      dEl.classList.remove('on');
+    }
+
+    renderBreakdown(data, prev);
   }
 
-  function renderBreakdown(data) {
-    const by = {};
+  function renderBreakdown(data, prev = []) {
+    const by = {}, prevBy = {};
     for (const o of data) {
       const n = o.channel || o.partner_name || 'Unknown';
       by[n] = (by[n] || 0) + o.amount_total;
     }
-    const sorted = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    for (const o of prev) {
+      const n = o.channel || o.partner_name || 'Unknown';
+      prevBy[n] = (prevBy[n] || 0) + o.amount_total;
+    }
+    const sorted     = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const showDelta  = prev.length > 0;
     const list = document.getElementById('bk-list');
     if (!sorted.length) {
       list.innerHTML = '<div style="font-size:.75rem;color:#c9cdd6;padding:.4rem 0">No data</div>';
       return;
     }
-    list.innerHTML = sorted.map(([name, amt], i) => `
-      <div class="bk-item">
-        <div class="bk-bar" style="background:${BAR_COLORS[i % BAR_COLORS.length]}"></div>
-        <span class="bk-name" title="${esc(name)}">${esc(name)}</span>
-        <span class="bk-amt">$${fmt(amt)}</span>
-      </div>`).join('');
+    list.innerHTML = sorted.map(([name, amt], i) => {
+      const d = showDelta ? deltaHtml(amt, prevBy[name] || 0) : '';
+      return `
+        <div class="bk-item">
+          <div class="bk-bar" style="background:${BAR_COLORS[i % BAR_COLORS.length]}"></div>
+          <span class="bk-name" title="${esc(name)}">${esc(name)}</span>
+          <span class="bk-amt">$${fmt(amt)}</span>
+          ${d ? `<span class="bk-delta">${d}</span>` : ''}
+        </div>`;
+    }).join('');
   }
 
   /* ── Tab switch ── */
@@ -647,7 +740,7 @@
     document.querySelectorAll('.p-tab').forEach(b => b.classList.remove('on'));
     btn.classList.add('on');
     activeTab = btn.dataset.tab;
-    if (orders.length) updatePanel(orders);
+    if (orders.length) updatePanel(orders, prevOrders);
   }
 
   /* ── Sidebar toggle ── */
@@ -694,6 +787,30 @@
     let h = 0;
     for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
     return AV_COLORS[Math.abs(h) % AV_COLORS.length];
+  }
+
+  /* ── Previous period date calculation ── */
+  function calcPrevDates(from, to) {
+    const a    = new Date(from + 'T00:00:00');
+    const b    = new Date(to   + 'T00:00:00');
+    const days = Math.round((b - a) / 86400000) + 1;   // inclusive length
+    const prevTo   = new Date(a); prevTo.setDate(prevTo.getDate() - 1);
+    const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - (days - 1));
+    return { prevFrom: iso(prevFrom), prevTo: iso(prevTo) };
+  }
+
+  /* ── Delta HTML chip ── */
+  function deltaHtml(curr, prev) {
+    if (prev === 0) return curr > 0 ? '<span class="delta-up">New</span>' : '';
+    const pct  = ((curr - prev) / Math.abs(prev)) * 100;
+    const sign = pct >= 0 ? '+' : '';
+    const cls  = pct >= 0 ? 'delta-up' : 'delta-down';
+    return `<span class="${cls}">(${sign}${pct.toFixed(1)}%)</span>`;
+  }
+
+  /* ── Short date label for hint ── */
+  function fmtHint(s) {
+    return new Date(s + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   }
 </script>
 </body>
