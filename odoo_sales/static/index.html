@@ -322,14 +322,15 @@
       </div>
       <div class="topbar-right">
         <div class="user-chip">
-          <div class="user-avatar">
+          <div class="user-avatar" id="user-avatar">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <circle cx="7" cy="5" r="2.5" fill="#7c3aed"/>
               <path d="M2 12c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="#7c3aed" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
           </div>
-          <span class="user-name">Admin</span>
+          <span class="user-name" id="user-name">…</span>
         </div>
+        <a href="/logout" style="display:flex;align-items:center;text-decoration:none;color:#6b7280;font-size:.8rem;font-weight:500;padding:.3rem .55rem;border-radius:7px;border:1px solid #e5e7eb;transition:background .15s" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background=''">Sign out</a>
         <button class="btn-fetch" id="fetch-btn" onclick="fetchSales()">
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
             <path d="M5 1v8M1 5h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -468,6 +469,23 @@
 </div>
 
 <script>
+  /* ── Load current user ── */
+  (async function loadUser() {
+    try {
+      const res = await fetch('/api/me');
+      if (!res.ok) { location.href = '/login'; return; }
+      const u = await res.json();
+      document.getElementById('user-name').textContent = u.name || u.email;
+      const av = document.getElementById('user-avatar');
+      if (u.picture) {
+        av.innerHTML = `<img src="${u.picture}" width="30" height="30" style="border-radius:50%;object-fit:cover" referrerpolicy="no-referrer" />`;
+      } else {
+        av.textContent = (u.name || u.email || '?')[0].toUpperCase();
+        av.style.fontSize = '.75rem';
+      }
+    } catch { /* server down — leave placeholder */ }
+  })();
+
   /* ── Palettes ── */
   const AV_COLORS  = ['#6366f1','#f59e0b','#10b981','#06b6d4','#ec4899','#8b5cf6','#ef4444','#14b8a6','#f97316','#84cc16'];
   const BAR_COLORS = ['#4f5af6','#f59e0b','#10b981','#06b6d4','#8b5cf6','#ec4899'];

@@ -38,3 +38,21 @@ variable "odoo_api_key" {
   type        = string
   sensitive   = true
 }
+
+variable "google_client_id" {
+  description = "Google OAuth 2.0 client ID for OIDC sign-in"
+  type        = string
+  sensitive   = true
+}
+
+variable "google_client_secret" {
+  description = "Google OAuth 2.0 client secret for OIDC sign-in"
+  type        = string
+  sensitive   = true
+}
+
+variable "session_secret" {
+  description = "Random 32+ character string used to sign session cookies"
+  type        = string
+  sensitive   = true
+}

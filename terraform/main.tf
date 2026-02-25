@@ -48,6 +48,27 @@ resource "google_secret_manager_secret" "odoo_api_key" {
   }
 }
 
+resource "google_secret_manager_secret" "google_client_id" {
+  secret_id = "google-client-id"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret" "google_client_secret" {
+  secret_id = "google-client-secret"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret" "session_secret" {
+  secret_id = "session-secret"
+  replication {
+    auto {}
+  }
+}
+
 # ── Secret Manager: versions (actual values) ──────────────────────────────────
 
 resource "google_secret_manager_secret_version" "odoo_url" {
@@ -68,6 +89,21 @@ resource "google_secret_manager_secret_version" "odoo_username" {
 resource "google_secret_manager_secret_version" "odoo_api_key" {
   secret      = google_secret_manager_secret.odoo_api_key.id
   secret_data = var.odoo_api_key
+}
+
+resource "google_secret_manager_secret_version" "google_client_id" {
+  secret      = google_secret_manager_secret.google_client_id.id
+  secret_data = var.google_client_id
+}
+
+resource "google_secret_manager_secret_version" "google_client_secret" {
+  secret      = google_secret_manager_secret.google_client_secret.id
+  secret_data = var.google_client_secret
+}
+
+resource "google_secret_manager_secret_version" "session_secret" {
+  secret      = google_secret_manager_secret.session_secret.id
+  secret_data = var.session_secret
 }
 
 # ── Secret Manager: IAM (SA access to each individual secret) ─────────────────
@@ -94,6 +130,32 @@ resource "google_secret_manager_secret_iam_member" "odoo_sales_api_key" {
   secret_id = google_secret_manager_secret.odoo_api_key.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.odoo_sales_runner.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "odoo_sales_google_client_id" {
+  secret_id = google_secret_manager_secret.google_client_id.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.odoo_sales_runner.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "odoo_sales_google_client_secret" {
+  secret_id = google_secret_manager_secret.google_client_secret.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.odoo_sales_runner.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "odoo_sales_session_secret" {
+  secret_id = google_secret_manager_secret.session_secret.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.odoo_sales_runner.email}"
+}
+
+# ── Firestore IAM: allow the runner SA to read allowed_users ─────────────────
+
+resource "google_project_iam_member" "odoo_sales_firestore" {
+  project = var.project_id
+  role    = "roles/datastore.user"
+  member  = "serviceAccount:${google_service_account.odoo_sales_runner.email}"
 }
 
 # ── Cloud Run v2 Service ──────────────────────────────────────────────────────
@@ -151,6 +213,36 @@ resource "google_cloud_run_v2_service" "odoo_sales" {
           }
         }
       }
+
+      env {
+        name = "GOOGLE_CLIENT_ID"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.google_client_id.secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "GOOGLE_CLIENT_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.google_client_secret.secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "SESSION_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.session_secret.secret_id
+            version = "latest"
+          }
+        }
+      }
     }
   }
 
@@ -159,6 +251,10 @@ resource "google_cloud_run_v2_service" "odoo_sales" {
     google_secret_manager_secret_iam_member.odoo_sales_db,
     google_secret_manager_secret_iam_member.odoo_sales_username,
     google_secret_manager_secret_iam_member.odoo_sales_api_key,
+    google_secret_manager_secret_iam_member.odoo_sales_google_client_id,
+    google_secret_manager_secret_iam_member.odoo_sales_google_client_secret,
+    google_secret_manager_secret_iam_member.odoo_sales_session_secret,
+    google_project_iam_member.odoo_sales_firestore,
   ]
 }
 

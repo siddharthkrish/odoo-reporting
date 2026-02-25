@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in — Sales Report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #edecf3;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.25rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 8px 48px rgba(0,0,0,.07);
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 380px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: .55rem;
+    }
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: #22c55e;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .brand-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #111827;
+      letter-spacing: -.01em;
+    }
+
+    .heading {
+      text-align: center;
+    }
+    .heading h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #111827;
+      letter-spacing: -.02em;
+      margin-bottom: .35rem;
+    }
+    .heading p {
+      font-size: .83rem;
+      color: #9ca3af;
+      line-height: 1.55;
+    }
+
+    .error-msg {
+      display: none;
+      width: 100%;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: .65rem .9rem;
+      color: #991b1b;
+      font-size: .82rem;
+      text-align: center;
+    }
+    .error-msg.visible { display: block; }
+
+    .btn-google {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .65rem;
+      width: 100%;
+      padding: .72rem 1rem;
+      background: #fff;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 10px;
+      font-size: .88rem;
+      font-weight: 600;
+      font-family: inherit;
+      color: #111827;
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .btn-google:hover {
+      border-color: #d1d5db;
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    }
+
+    .footer-note {
+      font-size: .73rem;
+      color: #b0b7c3;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+
+  <div class="brand">
+    <div class="brand-icon">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+        <path d="M8 2L13 5V11L8 14L3 11V5L8 2Z" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+        <circle cx="8" cy="8" r="2" fill="white"/>
+      </svg>
+    </div>
+    <span class="brand-name">Sales Report</span>
+  </div>
+
+  <div class="heading">
+    <h1>Sign in</h1>
+    <p>Use your Google account to access<br />the sales dashboard.</p>
+  </div>
+
+  <div class="error-msg" id="error-msg"></div>
+
+  <a class="btn-google" href="/auth/google">
+    <!-- Google "G" logo -->
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+      <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+      <path d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/>
+      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+    </svg>
+    Sign in with Google
+  </a>
+
+  <p class="footer-note">Access is restricted to approved accounts only.</p>
+
+</div>
+
+<script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const err = params.get('error');
+    const el  = document.getElementById('error-msg');
+    if (err === 'not_allowed') {
+      el.textContent = 'Your Google account is not on the approved list. Contact an admin to request access.';
+      el.classList.add('visible');
+    } else if (err === 'auth_failed') {
+      el.textContent = 'Sign-in failed. Please try again.';
+      el.classList.add('visible');
+    }
+  })();
+</script>
+</body>
+</html>
