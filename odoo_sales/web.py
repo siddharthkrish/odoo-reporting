@@ -15,7 +15,7 @@ from starlette.requests import Request
 load_dotenv()
 
 from .auth import get_session_user, init_oauth, is_allowed, oauth  # noqa: E402
-from .client import OdooClient  # noqa: E402
+from .client import OdooClient, SaleOrderLine  # noqa: E402
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -105,12 +105,33 @@ def sales(
     request: Request,
     date_from: str = Query(..., alias="from", description="Start date (YYYY-MM-DD)"),
     date_to: str = Query(..., alias="to", description="End date (YYYY-MM-DD)"),
+    product: str | None = Query(None, description="Comma-separated product/SKU filter chips"),
 ) -> list[dict]:
     _require_auth(request)
     try:
         client = OdooClient.from_env()
-        orders = client.get_sales_data(date_from, date_to)
+        chips = [c.strip() for c in product.split(",") if c.strip()] if product else None
+        orders = client.get_sales_data(date_from, date_to, product_filter=chips)
         return [order.to_dict() for order in orders]
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.get("/api/lines")
+def lines(
+    request: Request,
+    date_from: str = Query(..., alias="from", description="Start date (YYYY-MM-DD)"),
+    date_to: str = Query(..., alias="to", description="End date (YYYY-MM-DD)"),
+    product: str | None = Query(None, description="Comma-separated product/SKU filter chips"),
+) -> list[dict]:
+    _require_auth(request)
+    try:
+        client = OdooClient.from_env()
+        chips = [c.strip() for c in product.split(",") if c.strip()] if product else None
+        result = client.get_order_lines(date_from, date_to, product_filter=chips)
+        return [line.to_dict() for line in result]
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:

@@ -87,19 +87,78 @@
 
     /* Page header */
     .page-header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 1.25rem;
+      margin-bottom: .75rem;
     }
     .page-title { font-size: 1.8rem; font-weight: 700; color: #111827; letter-spacing: -.02em; }
 
-    .date-row { display: flex; align-items: center; gap: .45rem; }
-    .date-row input[type="date"] {
-      padding: .38rem .7rem; border: 1px solid #e5e7eb; border-radius: 8px;
+    /* ── Filter bar ── */
+    .filter-bar { display: flex; flex-direction: column; gap: .55rem; margin-bottom: 1.25rem; }
+    .filter-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+
+    .filter-select {
+      padding: .38rem .65rem; border: 1px solid #e5e7eb; border-radius: 8px;
       font-size: .8rem; font-family: inherit; color: #374151; background: #fff;
       cursor: pointer; outline: none; transition: border-color .15s;
     }
-    .date-row input[type="date"]:focus { border-color: #4f5af6; }
-    .date-sep { font-size: .75rem; color: #d1d5db; }
+    .filter-select:focus { border-color: #4f5af6; }
+
+    .date-dropdown { position: relative; }
+    .date-btn {
+      display: flex; align-items: center; gap: .4rem;
+      padding: .38rem .65rem; border: 1px solid #e5e7eb; border-radius: 8px;
+      font-size: .8rem; font-family: inherit; color: #374151; background: #fff;
+      cursor: pointer; outline: none; transition: border-color .15s; white-space: nowrap;
+    }
+    .date-btn:hover { border-color: #d1d5db; }
+    .date-btn:focus { border-color: #4f5af6; }
+
+    .date-panel {
+      position: absolute; top: calc(100% + 6px); left: 0; z-index: 200;
+      background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.1); padding: .9rem; min-width: 240px;
+    }
+    .preset-list { display: flex; flex-direction: column; gap: .2rem; }
+    .preset-btn {
+      background: none; border: none; cursor: pointer; padding: .38rem .65rem;
+      border-radius: 7px; font-size: .8rem; font-family: inherit; color: #374151;
+      text-align: left; transition: background .12s;
+    }
+    .preset-btn:hover { background: #f5f5fb; }
+    .preset-btn.active { background: #ede9fe; color: #7c3aed; font-weight: 600; }
+    .preset-divider { height: 1px; background: #f0f0f7; margin: .6rem 0; }
+    .preset-custom {}
+    .date-inputs { display: flex; align-items: center; gap: .4rem; }
+    .date-inputs input[type="date"] {
+      padding: .32rem .55rem; border: 1px solid #e5e7eb; border-radius: 7px;
+      font-size: .78rem; font-family: inherit; color: #374151; background: #fff;
+      cursor: pointer; outline: none; transition: border-color .15s; flex: 1;
+    }
+    .date-inputs input[type="date"]:focus { border-color: #4f5af6; }
+
+    .chip-input-wrap {
+      display: flex; align-items: center; gap: .4rem;
+      border: 1px solid #e5e7eb; border-radius: 8px; padding: .38rem .65rem;
+      background: #fff; cursor: text; flex: 1; min-width: 0;
+      transition: border-color .15s;
+    }
+    .chip-input-wrap:focus-within { border-color: #4f5af6; }
+    .chip-list { display: flex; flex-wrap: wrap; gap: .3rem; }
+    .chip {
+      display: inline-flex; align-items: center; gap: .2rem;
+      background: #ede9fe; color: #7c3aed; border-radius: 5px;
+      padding: .12rem .45rem; font-size: .75rem; font-weight: 600;
+    }
+    .chip-remove {
+      background: none; border: none; cursor: pointer;
+      color: #7c3aed; font-size: .9rem; line-height: 1; padding: 0;
+      opacity: .65; transition: opacity .12s;
+    }
+    .chip-remove:hover { opacity: 1; }
+    .chip-text-input {
+      border: none; outline: none; font-size: .8rem; font-family: inherit;
+      color: #374151; flex: 1; min-width: 80px; background: transparent;
+    }
+    .chip-text-input::placeholder { color: #b0b7c3; }
 
     /* Error banner */
     #error-msg {
@@ -265,20 +324,6 @@
     }
     .btn-dark:hover { background: #333; }
 
-    /* ── Compare toggle ── */
-    .compare-row {
-      display: flex; align-items: center; gap: .5rem;
-      margin-top: -.65rem; margin-bottom: 1.1rem;
-    }
-    .compare-label {
-      display: flex; align-items: center; gap: .4rem;
-      font-size: .78rem; color: #6b7280; cursor: pointer; user-select: none;
-    }
-    .compare-label input[type="checkbox"] {
-      width: 13px; height: 13px; accent-color: #4f5af6; cursor: pointer; flex-shrink: 0;
-    }
-    .compare-hint { font-size: .72rem; color: #b0b7c3; }
-
     /* ── Delta chips ── */
     .delta-up   { color: #16a34a; font-weight: 600; }
     .delta-down { color: #dc2626; font-weight: 600; }
@@ -342,41 +387,82 @@
 
     <div class="page-header">
       <h1 class="page-title">Overview</h1>
-      <div class="date-row">
-        <input type="date" id="date-from" onchange="onDateChange()" />
-        <span class="date-sep">→</span>
-        <input type="date" id="date-to" onchange="onDateChange()" />
-      </div>
     </div>
 
-    <div class="compare-row">
-      <label class="compare-label">
-        <input type="checkbox" id="compare-cb" onchange="onDateChange()" />
-        Compare with previous period
-      </label>
-      <span class="compare-hint" id="compare-hint"></span>
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <!-- Row 1: dropdowns -->
+      <div class="filter-row">
+        <select class="filter-select" id="report-type-sel" onchange="renderAll()">
+          <option value="orders">Sales Orders</option>
+          <option value="lines">Products / SKUs</option>
+        </select>
+        <select class="filter-select" id="measure-sel" onchange="renderAll()">
+          <option value="revenue">Revenue</option>
+          <option value="qty">Items Sold</option>
+        </select>
+        <div class="date-dropdown" id="date-dd">
+          <button class="date-btn" id="date-btn" onclick="toggleDatePanel()" type="button">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0;color:#9ca3af"><rect x="1" y="2" width="11" height="10" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M4 1v2M9 1v2M1 5h11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            <span id="date-label">Select date range</span>
+            <svg width="10" height="6" viewBox="0 0 10 6" fill="none" style="flex-shrink:0;color:#9ca3af"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="date-panel" id="date-panel" style="display:none">
+            <div class="preset-list">
+              <button class="preset-btn" data-n="1" data-unit="month" onclick="applyPreset(1,'month')" type="button">Last 1 month</button>
+              <button class="preset-btn" data-n="3" data-unit="month" onclick="applyPreset(3,'month')" type="button">Last 3 months</button>
+              <button class="preset-btn" data-n="6" data-unit="month" onclick="applyPreset(6,'month')" type="button">Last 6 months</button>
+              <button class="preset-btn" data-n="1" data-unit="year" onclick="applyPreset(1,'year')" type="button">Last year</button>
+            </div>
+            <div class="preset-divider"></div>
+            <div class="preset-custom">
+              <div class="date-inputs">
+                <input type="date" id="date-from" onchange="onCustomDateChange()" />
+                <span style="color:#d1d5db;font-size:.75rem">→</span>
+                <input type="date" id="date-to" onchange="onCustomDateChange()" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <select class="filter-select" id="compare-sel">
+          <option value="none">No comparison</option>
+          <option value="prev">Previous period</option>
+          <option value="1month">vs. 1 month ago</option>
+          <option value="3months">vs. 3 months ago</option>
+          <option value="6months">vs. 6 months ago</option>
+          <option value="1year">vs. 1 year ago</option>
+        </select>
+      </div>
+      <!-- Row 2: product filter -->
+      <div class="filter-row">
+        <div class="chip-input-wrap" id="chip-input-wrap" onclick="document.getElementById('chip-input').focus()">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0;color:#9ca3af"><circle cx="5.5" cy="5.5" r="4" stroke="currentColor" stroke-width="1.4"/><path d="M11 11L8.5 8.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <div class="chip-list" id="chip-list"></div>
+          <input class="chip-text-input" id="chip-input" placeholder="Filter by product / SKU…" onkeydown="onChipKeydown(event)" />
+        </div>
+      </div>
     </div>
 
     <div id="error-msg"></div>
 
     <!-- Stat cards -->
     <div class="stat-grid">
-      <div class="stat-card">
+      <div class="stat-card" data-stat="orders">
         <div class="stat-lbl">Total Orders</div>
         <div class="stat-val" id="sv-orders">—</div>
         <div class="stat-sub" id="ss-orders">Select a range</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" data-stat="revenue">
         <div class="stat-lbl">Total Revenue</div>
         <div class="stat-val" id="sv-revenue">—</div>
         <div class="stat-sub" id="ss-revenue">Select a range</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" data-stat="avg">
         <div class="stat-lbl">Avg. Order Value</div>
         <div class="stat-val" id="sv-avg">—</div>
         <div class="stat-sub" id="ss-avg">Select a range</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" data-stat="customers">
         <div class="stat-lbl">Customers</div>
         <div class="stat-val" id="sv-customers">—</div>
         <div class="stat-sub" id="ss-customers">Select a range</div>
@@ -384,13 +470,13 @@
     </div>
 
     <!-- Revenue chart -->
-    <div class="section-hd">Revenue</div>
+    <div class="section-hd" id="section-hd-chart">Revenue</div>
     <div class="revenue-row">
       <div class="revenue-metrics">
         <div class="rev-metric">
           <span class="rev-dot blue"></span>
           <div>
-            <div class="rev-lbl">Gross Volume</div>
+            <div class="rev-lbl" id="rv-total-lbl">Gross Volume</div>
             <div class="rev-val" id="rv-total">$—</div>
             <div class="rev-sub" id="rv-total-sub">—</div>
           </div>
@@ -398,7 +484,7 @@
         <div class="rev-metric">
           <span class="rev-dot gray"></span>
           <div>
-            <div class="rev-lbl">Avg. Order</div>
+            <div class="rev-lbl" id="rv-avg-lbl">Avg. Order</div>
             <div class="rev-val" id="rv-avg">$—</div>
             <div class="rev-sub" id="rv-avg-sub">—</div>
           </div>
@@ -415,7 +501,7 @@
 
     <!-- Transactions -->
     <div class="tx-section">
-      <div class="section-hd" style="margin-top:1.4rem">Transactions</div>
+      <div class="section-hd" id="section-hd-table" style="margin-top:1.4rem">Transactions</div>
       <div id="tx-container">
         <div class="tx-empty">Fetch data to see transactions</div>
       </div>
@@ -490,66 +576,203 @@
   const AV_COLORS  = ['#6366f1','#f59e0b','#10b981','#06b6d4','#ec4899','#8b5cf6','#ef4444','#14b8a6','#f97316','#84cc16'];
   const BAR_COLORS = ['#4f5af6','#f59e0b','#10b981','#06b6d4','#8b5cf6','#ec4899'];
 
+  /* ── Stat label maps ── */
+  const STAT_LABELS_ORDERS = { orders: 'Total Orders',  revenue: 'Total Revenue', avg: 'Avg. Order Value', customers: 'Customers' };
+  const STAT_LABELS_LINES  = { orders: 'Total Lines',   revenue: 'Total Revenue', avg: 'Avg. Quantity',    customers: 'Products'  };
+
   /* ── State ── */
-  let orders    = [];
+  let orders     = [];
   let prevOrders = [];
-  let activeTab = 'revenue';
+  let lines      = [];
+  let prevLines  = [];
+  let activeTab  = 'revenue';
+  let chips      = [];
 
-  /* ── Init date defaults ── */
-  const today = new Date();
-  const first = new Date(today.getFullYear(), today.getMonth(), 1);
-  document.getElementById('date-from').value = iso(first);
-  document.getElementById('date-to').value   = iso(today);
+  /* ── Date panel state ── */
+  let _datePanelOpen    = false;
+  let _datePanelHandler = null;
 
-  /* ── Date change: update compare hint ── */
-  function onDateChange() {
+  /* ── Init: apply 1-month preset ── */
+  applyPreset(1, 'month');
+
+  /* ── Preset / date panel ── */
+  function applyPreset(n, unit) {
+    const to   = new Date();
+    const from = new Date(to);
+    if (unit === 'month')     from.setMonth(from.getMonth() - n);
+    else if (unit === 'year') from.setFullYear(from.getFullYear() - n);
+    document.getElementById('date-from').value = iso(from);
+    document.getElementById('date-to').value   = iso(to);
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector(`.preset-btn[data-n="${n}"][data-unit="${unit}"]`);
+    if (btn) btn.classList.add('active');
+    updateDateLabel();
+    closeDatePanel();
+  }
+
+  function toggleDatePanel() {
+    if (_datePanelOpen) { closeDatePanel(); } else { openDatePanel(); }
+  }
+
+  function openDatePanel() {
+    document.getElementById('date-panel').style.display = 'block';
+    _datePanelOpen = true;
+    setTimeout(() => {
+      _datePanelHandler = function(e) {
+        const dd = document.getElementById('date-dd');
+        if (!dd.contains(e.target)) closeDatePanel();
+      };
+      document.addEventListener('click', _datePanelHandler);
+    }, 0);
+  }
+
+  function closeDatePanel() {
+    document.getElementById('date-panel').style.display = 'none';
+    _datePanelOpen = false;
+    if (_datePanelHandler) {
+      document.removeEventListener('click', _datePanelHandler);
+      _datePanelHandler = null;
+    }
+  }
+
+  function onCustomDateChange() {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    updateDateLabel();
+  }
+
+  function updateDateLabel() {
     const from = document.getElementById('date-from').value;
     const to   = document.getElementById('date-to').value;
-    const on   = document.getElementById('compare-cb').checked;
-    const hint = document.getElementById('compare-hint');
-    if (on && from && to && from <= to) {
-      const { prevFrom, prevTo } = calcPrevDates(from, to);
-      hint.textContent = `vs. ${fmtHint(prevFrom)} – ${fmtHint(prevTo)}`;
-    } else {
-      hint.textContent = '';
+    const span = document.getElementById('date-label');
+    if (!from || !to) { span.textContent = 'Select date range'; return; }
+    const a = new Date(from + 'T00:00:00');
+    const b = new Date(to   + 'T00:00:00');
+    const fmtFrom = a.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const fmtTo   = b.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    span.textContent = `${fmtFrom} – ${fmtTo}`;
+  }
+
+  /* ── Comparison range ── */
+  function calcCompareRange(from, to) {
+    const mode = document.getElementById('compare-sel').value;
+    if (mode === 'none') return null;
+    const a = new Date(from + 'T00:00:00');
+    const b = new Date(to   + 'T00:00:00');
+    if (mode === 'prev') {
+      const days     = Math.round((b - a) / 86400000) + 1;
+      const prevTo   = new Date(a); prevTo.setDate(prevTo.getDate() - 1);
+      const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - (days - 1));
+      return { prevFrom: iso(prevFrom), prevTo: iso(prevTo) };
     }
+    const shifts = { '1month': [1,'month'], '3months': [3,'month'], '6months': [6,'month'], '1year': [1,'year'] };
+    const [n, unit] = shifts[mode] || [1, 'month'];
+    const prevFrom = new Date(a);
+    const prevTo   = new Date(b);
+    if (unit === 'month') { prevFrom.setMonth(prevFrom.getMonth() - n); prevTo.setMonth(prevTo.getMonth() - n); }
+    else                  { prevFrom.setFullYear(prevFrom.getFullYear() - n); prevTo.setFullYear(prevTo.getFullYear() - n); }
+    return { prevFrom: iso(prevFrom), prevTo: iso(prevTo) };
+  }
+
+  /* ── Chip filter ── */
+  function onChipKeydown(e) {
+    const input = e.target;
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const val = input.value.trim().replace(/,$/, '');
+      if (val && !chips.includes(val)) { chips.push(val); renderChips(); }
+      input.value = '';
+    } else if (e.key === 'Backspace' && input.value === '') {
+      chips.pop();
+      renderChips();
+    }
+  }
+
+  function removeChip(val) {
+    chips = chips.filter(c => c !== val);
+    renderChips();
+  }
+
+  function renderChips() {
+    const list = document.getElementById('chip-list');
+    list.innerHTML = chips.map(c =>
+      `<span class="chip"><span class="chip-text">${esc(c)}</span><button class="chip-remove" onclick="removeChip(${JSON.stringify(c)})" type="button">×</button></span>`
+    ).join('');
   }
 
   /* ── Fetch ── */
   async function fetchSales() {
     const from = document.getElementById('date-from').value;
     const to   = document.getElementById('date-to').value;
-    if (!from || !to)  { showErr('Please select both dates.'); return; }
-    if (from > to)     { showErr('Start date must be before end date.'); return; }
+    if (!from || !to) { showErr('Please select both dates.'); return; }
+    if (from > to)    { showErr('Start date must be before end date.'); return; }
     hideErr();
     setBusy(true);
-    const comparing = document.getElementById('compare-cb').checked;
+
+    const reportType   = document.getElementById('report-type-sel').value;
+    const productParam = chips.length ? `&product=${enc(chips.join(','))}` : '';
+    const compareRange = calcCompareRange(from, to);
+
     try {
-      const reqs = [fetch(`/api/sales?from=${enc(from)}&to=${enc(to)}`)];
-      if (comparing) {
-        const { prevFrom, prevTo } = calcPrevDates(from, to);
-        reqs.push(fetch(`/api/sales?from=${enc(prevFrom)}&to=${enc(prevTo)}`));
+      if (reportType === 'lines') {
+        const reqs = [fetch(`/api/lines?from=${enc(from)}&to=${enc(to)}${productParam}`)];
+        if (compareRange) {
+          const { prevFrom, prevTo } = compareRange;
+          reqs.push(fetch(`/api/lines?from=${enc(prevFrom)}&to=${enc(prevTo)}${productParam}`));
+        }
+        const results = await Promise.all(reqs);
+        const data    = await results[0].json();
+        if (!results[0].ok) { showErr(data.detail || 'Server error.'); return; }
+        lines     = data;
+        prevLines = (compareRange && results[1]?.ok) ? await results[1].json() : [];
+      } else {
+        const reqs = [fetch(`/api/sales?from=${enc(from)}&to=${enc(to)}${productParam}`)];
+        if (compareRange) {
+          const { prevFrom, prevTo } = compareRange;
+          reqs.push(fetch(`/api/sales?from=${enc(prevFrom)}&to=${enc(prevTo)}${productParam}`));
+        }
+        const results = await Promise.all(reqs);
+        const data    = await results[0].json();
+        if (!results[0].ok) { showErr(data.detail || 'Server error.'); return; }
+        orders     = data;
+        prevOrders = (compareRange && results[1]?.ok) ? await results[1].json() : [];
       }
-      const results = await Promise.all(reqs);
-      const data = await results[0].json();
-      if (!results[0].ok) { showErr(data.detail || 'Server error.'); return; }
-      orders     = data;
-      prevOrders = (comparing && results[1]?.ok) ? await results[1].json() : [];
-      render(data, prevOrders);
+      renderAll();
     } catch { showErr('Network error — is the server running?'); }
     finally  { setBusy(false); }
   }
 
-  /* ── Render all ── */
-  function render(data, prev = []) {
-    updateStats(data);
-    renderChart(data);
-    renderTable(data);
-    updatePanel(data, prev);
+  /* ── Render dispatcher ── */
+  function renderAll() {
+    const reportType = document.getElementById('report-type-sel').value;
+    const measure    = document.getElementById('measure-sel').value;
+    if (reportType === 'lines') {
+      setStatLabels(STAT_LABELS_LINES);
+      document.getElementById('section-hd-chart').textContent = measure === 'qty' ? 'Items Sold' : 'Revenue';
+      document.getElementById('section-hd-table').textContent = 'Products';
+      updateStatsLines(lines, prevLines, measure);
+      renderChartLines(lines, measure);
+      renderTableLines(lines);
+      updatePanel(lines.map(lineToFakeOrder), prevLines.map(lineToFakeOrder));
+    } else {
+      setStatLabels(STAT_LABELS_ORDERS);
+      document.getElementById('section-hd-chart').textContent = 'Revenue';
+      document.getElementById('section-hd-table').textContent = 'Transactions';
+      updateStats(orders, prevOrders);
+      renderChart(orders, measure);
+      renderTable(orders);
+      updatePanel(orders, prevOrders);
+    }
   }
 
-  /* ── Stats ── */
-  function updateStats(data) {
+  function setStatLabels(map) {
+    document.querySelectorAll('.stat-card').forEach(card => {
+      const key = card.dataset.stat;
+      if (key && map[key]) card.querySelector('.stat-lbl').textContent = map[key];
+    });
+  }
+
+  /* ── Stats — orders ── */
+  function updateStats(data, prev = []) {
     const total     = data.reduce((s, o) => s + o.amount_total, 0);
     const avg       = data.length ? total / data.length : 0;
     const customers = new Set(data.map(o => o.partner_name).filter(Boolean)).size;
@@ -558,29 +781,76 @@
     set('sv-revenue',   '$' + fmt(total));
     set('sv-avg',       '$' + fmt(avg));
     set('sv-customers', customers.toLocaleString());
-    setSub('ss-orders',    data.length + ' total', 'neutral');
-    setSub('ss-revenue',   'for selected period',  'neutral');
-    setSub('ss-avg',       'per order',            'neutral');
-    setSub('ss-customers', customers + ' unique',  'neutral');
+
+    if (prev.length > 0) {
+      const pTotal = prev.reduce((s, o) => s + o.amount_total, 0);
+      const pAvg   = prev.length ? pTotal / prev.length : 0;
+      const pCust  = new Set(prev.map(o => o.partner_name).filter(Boolean)).size;
+      setSubHtml('ss-orders',    deltaHtml(data.length, prev.length) || (data.length + ' total'), 'neutral');
+      setSubHtml('ss-revenue',   deltaHtml(total, pTotal)            || 'for selected period',    'neutral');
+      setSubHtml('ss-avg',       deltaHtml(avg, pAvg)                || 'per order',              'neutral');
+      setSubHtml('ss-customers', deltaHtml(customers, pCust)         || (customers + ' unique'),  'neutral');
+    } else {
+      setSub('ss-orders',    data.length + ' total', 'neutral');
+      setSub('ss-revenue',   'for selected period',  'neutral');
+      setSub('ss-avg',       'per order',            'neutral');
+      setSub('ss-customers', customers + ' unique',  'neutral');
+    }
 
     set('rv-total',     '$' + fmt(total));
     set('rv-avg',       '$' + fmt(avg));
     set('rv-total-sub', data.length + ' orders in range');
     set('rv-avg-sub',   'per order value');
+    document.getElementById('rv-total-lbl').textContent = 'Gross Volume';
+    document.getElementById('rv-avg-lbl').textContent   = 'Avg. Order';
   }
 
-  /* ── Main chart ── */
-  function renderChart(data) {
+  /* ── Stats — lines ── */
+  function updateStatsLines(data, prev = [], measure = 'revenue') {
+    const totalRevenue = data.reduce((s, l) => s + l.price_subtotal, 0);
+    const totalQty     = data.reduce((s, l) => s + l.quantity, 0);
+    const avgQty       = data.length ? totalQty / data.length : 0;
+    const uniqueProds  = new Set(data.map(l => l.product_name)).size;
+
+    set('sv-orders',    data.length.toLocaleString());
+    set('sv-revenue',   '$' + fmt(totalRevenue));
+    set('sv-avg',       avgQty.toLocaleString(undefined, { maximumFractionDigits: 1 }));
+    set('sv-customers', uniqueProds.toLocaleString());
+
+    if (prev.length > 0) {
+      const pRev   = prev.reduce((s, l) => s + l.price_subtotal, 0);
+      const pQty   = prev.reduce((s, l) => s + l.quantity, 0);
+      const pAvgQ  = prev.length ? pQty / prev.length : 0;
+      const pProds = new Set(prev.map(l => l.product_name)).size;
+      setSubHtml('ss-orders',    deltaHtml(data.length, prev.length)  || (data.length + ' lines'),   'neutral');
+      setSubHtml('ss-revenue',   deltaHtml(totalRevenue, pRev)        || 'for period',               'neutral');
+      setSubHtml('ss-avg',       deltaHtml(avgQty, pAvgQ)             || 'avg qty',                  'neutral');
+      setSubHtml('ss-customers', deltaHtml(uniqueProds, pProds)       || (uniqueProds + ' products'),'neutral');
+    } else {
+      setSub('ss-orders',    data.length + ' lines',    'neutral');
+      setSub('ss-revenue',   'for period',              'neutral');
+      setSub('ss-avg',       'avg qty',                 'neutral');
+      setSub('ss-customers', uniqueProds + ' products', 'neutral');
+    }
+
+    set('rv-total',     '$' + fmt(totalRevenue));
+    set('rv-avg',       totalQty.toLocaleString(undefined, { maximumFractionDigits: 0 }) + ' items');
+    set('rv-total-sub', data.length + ' line items');
+    set('rv-avg-sub',   'total items sold');
+    document.getElementById('rv-total-lbl').textContent = 'Total Revenue';
+    document.getElementById('rv-avg-lbl').textContent   = 'Items Sold';
+  }
+
+  /* ── Main chart — orders (time series) ── */
+  function renderChart(data, measure = 'revenue') {
     const byDate = {};
     for (const o of data) {
       const d = o.date_order.slice(0, 10);
-      byDate[d] = (byDate[d] || 0) + o.amount_total;
+      byDate[d] = (byDate[d] || 0) + (measure === 'qty' ? 1 : o.amount_total);
     }
     const dates   = Object.keys(byDate).sort();
     const amounts = dates.map(d => byDate[d]);
-
-    // Rolling average as second line
-    const win      = Math.max(1, Math.floor(dates.length / 5));
+    const win     = Math.max(1, Math.floor(dates.length / 5));
     const smoothed = amounts.map((_, i) => {
       const sl = amounts.slice(Math.max(0, i - win), i + win + 1);
       return sl.reduce((a, b) => a + b, 0) / sl.length;
@@ -588,21 +858,24 @@
 
     show('main-chart'); hide('chart-placeholder');
 
+    const hoverTpl = measure === 'qty'
+      ? '<b>%{x|%b %d}</b>  %{y:,} orders<extra></extra>'
+      : '<b>%{x|%b %d}</b>  $%{y:,.2f}<extra></extra>';
+    const yFmt = measure === 'qty' ? ',.0f' : ',.0f';
+
     Plotly.react('main-chart', [
       {
         type: 'scatter', mode: 'lines',
         x: dates, y: amounts,
         fill: 'tozeroy', fillcolor: 'rgba(79,90,246,.06)',
         line: { color: '#4f5af6', width: 2, shape: 'spline', smoothing: 1.3 },
-        hovertemplate: '<b>%{x|%b %d}</b>  $%{y:,.2f}<extra></extra>',
-        name: 'Daily'
+        hovertemplate: hoverTpl, name: 'Daily'
       },
       {
         type: 'scatter', mode: 'lines',
         x: dates, y: smoothed,
         line: { color: '#d1d5db', width: 1.5, shape: 'spline', smoothing: 1.3 },
-        hovertemplate: '<b>%{x|%b %d}</b>  $%{y:,.2f}<extra></extra>',
-        name: 'Trend'
+        hovertemplate: hoverTpl, name: 'Trend'
       }
     ], {
       margin: { t: 6, r: 6, b: 36, l: 58 },
@@ -612,7 +885,7 @@
         tickfont: { size: 10, color: '#b0b7c3', family: 'Inter' }
       },
       yaxis: {
-        tickformat: ',.0f', gridcolor: '#f5f5fb',
+        tickformat: yFmt, gridcolor: '#f5f5fb',
         linecolor: 'transparent', tickcolor: 'transparent',
         tickfont: { size: 10, color: '#b0b7c3', family: 'Inter' }, zeroline: false
       },
@@ -641,6 +914,50 @@
     }, { responsive: true, displayModeBar: false });
   }
 
+  /* ── Chart — lines (horizontal bar, top 12 products) ── */
+  function renderChartLines(data, measure = 'revenue') {
+    if (!data.length) { hide('main-chart'); show('chart-placeholder'); return; }
+
+    const byProduct = {};
+    for (const l of data) {
+      if (!byProduct[l.product_name]) byProduct[l.product_name] = { revenue: 0, qty: 0 };
+      byProduct[l.product_name].revenue += l.price_subtotal;
+      byProduct[l.product_name].qty     += l.quantity;
+    }
+    const key    = measure === 'qty' ? 'qty' : 'revenue';
+    const sorted = Object.entries(byProduct).sort((a, b) => b[1][key] - a[1][key]).slice(0, 12);
+    const names  = sorted.map(([name]) => name).reverse();
+    const values = sorted.map(([, v]) => v[key]).reverse();
+
+    show('main-chart'); hide('chart-placeholder');
+
+    Plotly.react('main-chart', [{
+      type: 'bar', orientation: 'h',
+      x: values, y: names,
+      marker: { color: '#4f5af6' },
+      hovertemplate: measure === 'qty'
+        ? '<b>%{y}</b>  %{x:,.0f} items<extra></extra>'
+        : '<b>%{y}</b>  $%{x:,.2f}<extra></extra>',
+      name: measure === 'qty' ? 'Items Sold' : 'Revenue'
+    }], {
+      margin: { t: 6, r: 20, b: 36, l: 160 },
+      xaxis: {
+        tickformat: ',.0f', gridcolor: '#f5f5fb',
+        linecolor: 'transparent', tickcolor: 'transparent',
+        tickfont: { size: 10, color: '#b0b7c3', family: 'Inter' }, zeroline: false
+      },
+      yaxis: {
+        tickfont: { size: 10, color: '#374151', family: 'Inter' },
+        linecolor: 'transparent', tickcolor: 'transparent'
+      },
+      plot_bgcolor: '#fff', paper_bgcolor: '#fff', showlegend: false,
+      hoverlabel: { bgcolor: '#111', bordercolor: '#111', font: { color: '#fff', size: 11, family: 'Inter' } }
+    }, { responsive: true, displayModeBar: false });
+
+    /* Hide sparkline for product view */
+    hide('sparkline'); show('spark-placeholder');
+  }
+
   /* ── Channel tag helper ── */
   function channelTag(ch) {
     const map = { Lazada: 'ch-lazada', Website: 'ch-website', Shopee: 'ch-shopee', Amazon: 'ch-amazon' };
@@ -648,14 +965,14 @@
     return `<span class="ch-tag ${cls}">${esc(ch)}</span>`;
   }
 
-  /* ── Table ── */
+  /* ── Table — orders ── */
   function renderTable(data) {
     const wrap = document.getElementById('tx-container');
     if (!data.length) {
       wrap.innerHTML = '<div class="tx-empty">No orders found for this period.</div>';
       return;
     }
-    const rows = data.slice(0, 60).map((o, i) => {
+    const rows = data.slice(0, 60).map((o) => {
       const ch    = o.channel || o.partner_name || '—';
       const init  = ch[0].toUpperCase();
       const color = avatarColor(ch);
@@ -683,6 +1000,40 @@
     </table>`;
   }
 
+  /* ── Table — lines (aggregated by product) ── */
+  function renderTableLines(data) {
+    const wrap = document.getElementById('tx-container');
+    if (!data.length) {
+      wrap.innerHTML = '<div class="tx-empty">No products found for this period.</div>';
+      return;
+    }
+    const byProduct = {};
+    for (const l of data) {
+      if (!byProduct[l.product_name]) byProduct[l.product_name] = { sku: l.sku, qty: 0, revenue: 0 };
+      byProduct[l.product_name].qty     += l.quantity;
+      byProduct[l.product_name].revenue += l.price_subtotal;
+    }
+    const sorted = Object.entries(byProduct).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 60);
+    const rows = sorted.map(([name, v]) => `<tr>
+      <td>${esc(name)}</td>
+      <td style="color:#6b7280">${esc(v.sku || '—')}</td>
+      <td class="td-r">${v.qty.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+      <td class="td-r">$${fmt(v.revenue)}</td>
+    </tr>`).join('');
+
+    wrap.innerHTML = `<table>
+      <thead><tr>
+        <th>Product</th><th>SKU</th><th class="r">Items Sold</th><th class="r">Revenue</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }
+
+  /* ── Line → fake order adapter (for updatePanel reuse) ── */
+  function lineToFakeOrder(l) {
+    return { amount_total: l.price_subtotal, partner_name: l.channel, channel: l.channel };
+  }
+
   /* ── Right panel ── */
   function updatePanel(data, prev = []) {
     const total     = data.reduce((s, o) => s + o.amount_total, 0);
@@ -707,7 +1058,6 @@
       set('panel-desc', `Unique customers with at least one order in the selected period.`);
     }
 
-    // Overall delta badge
     const dEl = document.getElementById('panel-delta');
     if (prev.length > 0) {
       const html = deltaHtml(currVal, prevVal);
@@ -734,8 +1084,8 @@
       const n = o.channel || o.partner_name || 'Unknown';
       prevBy[n] = (prevBy[n] || 0) + o.amount_total;
     }
-    const sorted     = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 6);
-    const showDelta  = prev.length > 0;
+    const sorted    = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const showDelta = prev.length > 0;
     const list = document.getElementById('bk-list');
     if (!sorted.length) {
       list.innerHTML = '<div style="font-size:.75rem;color:#c9cdd6;padding:.4rem 0">No data</div>';
@@ -758,7 +1108,10 @@
     document.querySelectorAll('.p-tab').forEach(b => b.classList.remove('on'));
     btn.classList.add('on');
     activeTab = btn.dataset.tab;
-    if (orders.length) updatePanel(orders, prevOrders);
+    const reportType = document.getElementById('report-type-sel').value;
+    const data = reportType === 'lines' ? lines.map(lineToFakeOrder) : orders;
+    const prev = reportType === 'lines' ? prevLines.map(lineToFakeOrder) : prevOrders;
+    if (data.length) updatePanel(data, prev);
   }
 
   /* ── Sidebar toggle ── */
@@ -768,16 +1121,32 @@
 
   /* ── Export ── */
   function exportCSV() {
-    if (!orders.length) { showErr('No data to export.'); return; }
-    const header = ['Order', 'Date', 'Customer', 'Currency', 'Amount'];
-    const rows   = orders.map(o => [
-      `"${o.name}"`, o.date_order.slice(0, 10),
-      `"${(o.partner_name || '').replace(/"/g, '""')}"`,
-      o.currency_name || '', o.amount_total.toFixed(2)
-    ].join(','));
-    const blob = new Blob([[header.join(','), ...rows].join('\n')], { type: 'text/csv' });
-    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'sales-report.csv' });
-    a.click(); URL.revokeObjectURL(a.href);
+    const reportType = document.getElementById('report-type-sel').value;
+    if (reportType === 'lines') {
+      if (!lines.length) { showErr('No data to export.'); return; }
+      const header = ['Order', 'Date', 'Product', 'SKU', 'Quantity', 'Revenue', 'Channel'];
+      const rows   = lines.map(l => [
+        `"${l.order_name}"`, l.date_order.slice(0, 10),
+        `"${(l.product_name || '').replace(/"/g, '""')}"`,
+        `"${(l.sku || '').replace(/"/g, '""')}"`,
+        l.quantity.toFixed(2), l.price_subtotal.toFixed(2),
+        `"${(l.channel || '').replace(/"/g, '""')}"`
+      ].join(','));
+      const blob = new Blob([[header.join(','), ...rows].join('\n')], { type: 'text/csv' });
+      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'sales-lines.csv' });
+      a.click(); URL.revokeObjectURL(a.href);
+    } else {
+      if (!orders.length) { showErr('No data to export.'); return; }
+      const header = ['Order', 'Date', 'Customer', 'Currency', 'Amount'];
+      const rows   = orders.map(o => [
+        `"${o.name}"`, o.date_order.slice(0, 10),
+        `"${(o.partner_name || '').replace(/"/g, '""')}"`,
+        o.currency_name || '', o.amount_total.toFixed(2)
+      ].join(','));
+      const blob = new Blob([[header.join(','), ...rows].join('\n')], { type: 'text/csv' });
+      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'sales-report.csv' });
+      a.click(); URL.revokeObjectURL(a.href);
+    }
   }
 
   /* ── Helpers ── */
@@ -796,6 +1165,7 @@
   function hide(id) { document.getElementById(id).style.display = 'none'; }
   function set(id, val) { document.getElementById(id).textContent = val; }
   function setSub(id, text, cls) { const e = document.getElementById(id); e.textContent = text; e.className = 'stat-sub ' + cls; }
+  function setSubHtml(id, html, cls) { const e = document.getElementById(id); e.innerHTML = html; e.className = 'stat-sub ' + cls; }
   function enc(s) { return encodeURIComponent(s); }
   function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function iso(d) { return d.toISOString().slice(0, 10); }
@@ -807,16 +1177,6 @@
     return AV_COLORS[Math.abs(h) % AV_COLORS.length];
   }
 
-  /* ── Previous period date calculation ── */
-  function calcPrevDates(from, to) {
-    const a    = new Date(from + 'T00:00:00');
-    const b    = new Date(to   + 'T00:00:00');
-    const days = Math.round((b - a) / 86400000) + 1;   // inclusive length
-    const prevTo   = new Date(a); prevTo.setDate(prevTo.getDate() - 1);
-    const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - (days - 1));
-    return { prevFrom: iso(prevFrom), prevTo: iso(prevTo) };
-  }
-
   /* ── Delta HTML chip ── */
   function deltaHtml(curr, prev) {
     if (prev === 0) return curr > 0 ? '<span class="delta-up">New</span>' : '';
@@ -824,11 +1184,6 @@
     const sign = pct >= 0 ? '+' : '';
     const cls  = pct >= 0 ? 'delta-up' : 'delta-down';
     return `<span class="${cls}">(${sign}${pct.toFixed(1)}%)</span>`;
-  }
-
-  /* ── Short date label for hint ── */
-  function fmtHint(s) {
-    return new Date(s + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   }
 </script>
 </body>
