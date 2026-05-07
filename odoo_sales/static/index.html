@@ -41,12 +41,12 @@
       padding: 1.6rem 2rem 2rem;
     }
 
-    /* Topbar */
+    /* ── Topbar ── */
     .topbar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 1.6rem;
+      margin-bottom: 1rem;
     }
     .topbar-left { display: flex; align-items: center; gap: .7rem; }
 
@@ -73,6 +73,12 @@
     }
     .user-name { font-size: .83rem; font-weight: 500; color: #374151; }
 
+    .last-fetched {
+      font-size: .75rem; color: #b0b7c3; font-weight: 400;
+      opacity: 0; transition: opacity .4s; white-space: nowrap;
+    }
+    .last-fetched.visible { opacity: 1; }
+
     .btn-fetch {
       display: flex; align-items: center; gap: .35rem;
       background: #111; color: #fff; border: none; cursor: pointer;
@@ -85,32 +91,44 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .btn-fetch .spinner { animation: spin .7s linear infinite; }
 
-    /* Page header */
-    .page-header {
-      margin-bottom: .75rem;
-    }
-    .page-title { font-size: 1.8rem; font-weight: 700; color: #111827; letter-spacing: -.02em; }
-
     /* ── Filter bar ── */
     .filter-bar { display: flex; flex-direction: column; gap: .55rem; margin-bottom: 1.25rem; }
     .filter-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+    .filter-group { display: flex; align-items: center; gap: .4rem; }
+    .filter-group-label {
+      font-size: .65rem; font-weight: 600; color: #b0b7c3;
+      text-transform: uppercase; letter-spacing: .06em; padding-right: .15rem;
+    }
+    .filter-divider {
+      width: 1px; height: 22px; background: #e5e7eb; flex-shrink: 0; margin: 0 .25rem;
+    }
 
     .filter-select {
-      padding: .38rem .65rem; border: 1px solid #e5e7eb; border-radius: 8px;
+      height: 34px;
+      padding: 0 1.8rem 0 .65rem;
+      border: 1px solid #e5e7eb; border-radius: 8px;
       font-size: .8rem; font-family: inherit; color: #374151; background: #fff;
       cursor: pointer; outline: none; transition: border-color .15s;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right .6rem center;
     }
     .filter-select:focus { border-color: #4f5af6; }
 
     .date-dropdown { position: relative; }
     .date-btn {
       display: flex; align-items: center; gap: .4rem;
-      padding: .38rem .65rem; border: 1px solid #e5e7eb; border-radius: 8px;
+      height: 34px; padding: 0 .65rem;
+      border: 1px solid #e5e7eb; border-radius: 8px;
       font-size: .8rem; font-family: inherit; color: #374151; background: #fff;
-      cursor: pointer; outline: none; transition: border-color .15s; white-space: nowrap;
+      cursor: pointer; outline: none;
+      transition: border-color .15s, box-shadow .15s;
+      white-space: nowrap;
     }
     .date-btn:hover { border-color: #d1d5db; }
     .date-btn:focus { border-color: #4f5af6; }
+    .date-btn.open { border-color: #4f5af6; box-shadow: 0 0 0 3px rgba(79,90,246,.1); }
 
     .date-panel {
       position: absolute; top: calc(100% + 6px); left: 0; z-index: 200;
@@ -126,7 +144,6 @@
     .preset-btn:hover { background: #f5f5fb; }
     .preset-btn.active { background: #ede9fe; color: #7c3aed; font-weight: 600; }
     .preset-divider { height: 1px; background: #f0f0f7; margin: .6rem 0; }
-    .preset-custom {}
     .date-inputs { display: flex; align-items: center; gap: .4rem; }
     .date-inputs input[type="date"] {
       padding: .32rem .55rem; border: 1px solid #e5e7eb; border-radius: 7px;
@@ -167,7 +184,7 @@
       font-size: .82rem; margin-bottom: 1.1rem;
     }
 
-    /* Stat cards */
+    /* ── Stat cards ── */
     .stat-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -176,14 +193,16 @@
     }
     .stat-card {
       border: 1px solid #f0f0f7; border-radius: 10px; padding: .9rem 1.05rem;
+      transition: box-shadow .18s, transform .18s; cursor: default;
     }
+    .stat-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.08); transform: translateY(-1px); }
     .stat-lbl { font-size: .7rem; color: #9ca3af; font-weight: 500; margin-bottom: .35rem; }
     .stat-val { font-size: 1.3rem; font-weight: 700; color: #111827; margin-bottom: .25rem; line-height: 1; }
     .stat-sub { font-size: .7rem; font-weight: 500; color: #9ca3af; display: flex; align-items: center; gap: .2rem; }
     .stat-sub.up   { color: #16a34a; }
     .stat-sub.down { color: #dc2626; }
 
-    /* Revenue section */
+    /* ── Revenue section ── */
     .section-hd { font-size: .85rem; font-weight: 600; color: #111827; margin-bottom: .85rem; }
 
     .revenue-row {
@@ -201,17 +220,68 @@
     .rev-sub.up   { color: #16a34a; }
     .rev-sub.down { color: #dc2626; }
 
-    #main-chart { width: 100%; height: 195px; }
+    #main-chart { width: 100%; height: 260px; }
 
-    /* Placeholder for chart before data loads */
+    /* Chart placeholder */
     .chart-placeholder {
-      height: 195px; border: 1.5px dashed #f0f0f7; border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      color: #c9cdd6; font-size: .82rem; gap: .5rem;
+      height: 260px; border: 1.5px dashed #f0f0f7; border-radius: 10px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: #c9cdd6; font-size: .82rem; gap: .75rem;
     }
 
-    /* Transactions */
-    .tx-section { margin-top: 1.4rem; }
+    /* Chart skeleton */
+    #chart-skel {
+      height: 260px; border-radius: 10px; overflow: hidden;
+      display: none; align-items: flex-end; justify-content: center;
+      gap: 14px; padding: 0 24px 28px;
+      border: 1px solid #f0f0f7;
+    }
+    .skel-bar {
+      flex: 1; border-radius: 6px 6px 0 0; background: #f0f0f7;
+    }
+
+    /* Shimmer animation */
+    @keyframes shimmer {
+      0%   { opacity: 1; }
+      50%  { opacity: .4; }
+      100% { opacity: 1; }
+    }
+    .skel {
+      border-radius: 5px; background: #f0f0f7;
+      animation: shimmer 1.4s ease-in-out infinite;
+      display: block;
+    }
+    .skel-val { height: 22px; width: 65%; margin-bottom: .35rem; }
+    .skel-sub { height: 11px; width: 45%; }
+    .skel-bar  { animation: shimmer 1.4s ease-in-out infinite; }
+
+    /* Skeleton table rows */
+    .skel-row {
+      display: flex; align-items: center; gap: .8rem;
+      padding: .65rem .8rem; border-bottom: 1px solid #f7f7fb;
+    }
+    .skel-cell {
+      height: 13px; border-radius: 4px; background: #f0f0f7;
+      animation: shimmer 1.4s ease-in-out infinite; flex-shrink: 0;
+    }
+
+    /* ── Transactions ── */
+    .tx-section { margin-top: 1.4rem; overflow: visible; }
+    .tx-section-hd {
+      display: flex; align-items: center; gap: .5rem;
+      margin-top: 1.4rem; margin-bottom: .85rem;
+    }
+    .tx-section-hd .section-hd { margin-bottom: 0; }
+
+    .tbl-count {
+      display: inline-flex; align-items: center;
+      background: #f5f5fb; color: #9ca3af; border-radius: 20px;
+      font-size: .68rem; font-weight: 600; padding: .1rem .5rem;
+    }
+
+    .tx-scroll {
+      max-height: 340px; overflow-y: auto; border-radius: 8px;
+    }
     .tx-empty {
       text-align: center; padding: 2.5rem 1rem;
       color: #c9cdd6; font-size: .85rem;
@@ -223,6 +293,7 @@
       letter-spacing: .07em; color: #9ca3af;
       padding: 0 .8rem .55rem; text-align: left;
       border-bottom: 1px solid #f4f4f9;
+      position: sticky; top: 0; background: #fff; z-index: 1;
     }
     thead th.r { text-align: right; }
     tbody td {
@@ -376,6 +447,7 @@
           <span class="user-name" id="user-name">…</span>
         </div>
         <a href="/logout" style="display:flex;align-items:center;text-decoration:none;color:#6b7280;font-size:.8rem;font-weight:500;padding:.3rem .55rem;border-radius:7px;border:1px solid #e5e7eb;transition:background .15s" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background=''">Sign out</a>
+        <span class="last-fetched" id="last-fetched"></span>
         <button class="btn-fetch" id="fetch-btn" onclick="fetchSales()">
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
             <path d="M5 1v8M1 5h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -385,53 +457,56 @@
       </div>
     </nav>
 
-    <div class="page-header">
-      <h1 class="page-title">Overview</h1>
-    </div>
-
     <!-- Filter bar -->
     <div class="filter-bar">
-      <!-- Row 1: dropdowns -->
+      <!-- Row 1: view + period groups -->
       <div class="filter-row">
-        <select class="filter-select" id="report-type-sel" onchange="renderAll()">
-          <option value="orders">Sales Orders</option>
-          <option value="lines">Products / SKUs</option>
-        </select>
-        <select class="filter-select" id="measure-sel" onchange="renderAll()">
-          <option value="revenue">Revenue</option>
-          <option value="qty">Items Sold</option>
-        </select>
-        <div class="date-dropdown" id="date-dd">
-          <button class="date-btn" id="date-btn" onclick="toggleDatePanel()" type="button">
-            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0;color:#9ca3af"><rect x="1" y="2" width="11" height="10" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M4 1v2M9 1v2M1 5h11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-            <span id="date-label">Select date range</span>
-            <svg width="10" height="6" viewBox="0 0 10 6" fill="none" style="flex-shrink:0;color:#9ca3af"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <div class="date-panel" id="date-panel" style="display:none">
-            <div class="preset-list">
-              <button class="preset-btn" data-n="1" data-unit="month" onclick="applyPreset(1,'month')" type="button">Last 1 month</button>
-              <button class="preset-btn" data-n="3" data-unit="month" onclick="applyPreset(3,'month')" type="button">Last 3 months</button>
-              <button class="preset-btn" data-n="6" data-unit="month" onclick="applyPreset(6,'month')" type="button">Last 6 months</button>
-              <button class="preset-btn" data-n="1" data-unit="year" onclick="applyPreset(1,'year')" type="button">Last year</button>
-            </div>
-            <div class="preset-divider"></div>
-            <div class="preset-custom">
-              <div class="date-inputs">
-                <input type="date" id="date-from" onchange="onCustomDateChange()" />
-                <span style="color:#d1d5db;font-size:.75rem">→</span>
-                <input type="date" id="date-to" onchange="onCustomDateChange()" />
+        <div class="filter-group">
+          <span class="filter-group-label">View</span>
+          <select class="filter-select" id="report-type-sel" onchange="renderAll()">
+            <option value="orders">Sales Orders</option>
+            <option value="lines">Products / SKUs</option>
+          </select>
+          <select class="filter-select" id="measure-sel" onchange="renderAll()">
+            <option value="revenue">Revenue</option>
+            <option value="qty">Items Sold</option>
+          </select>
+        </div>
+        <div class="filter-divider"></div>
+        <div class="filter-group">
+          <span class="filter-group-label">Period</span>
+          <div class="date-dropdown" id="date-dd">
+            <button class="date-btn" id="date-btn" onclick="toggleDatePanel()" type="button">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0;color:#9ca3af"><rect x="1" y="2" width="11" height="10" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M4 1v2M9 1v2M1 5h11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+              <span id="date-label">Select date range</span>
+              <svg width="10" height="6" viewBox="0 0 10 6" fill="none" style="flex-shrink:0;color:#9ca3af"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="date-panel" id="date-panel" style="display:none">
+              <div class="preset-list">
+                <button class="preset-btn" data-n="1" data-unit="month" onclick="applyPreset(1,'month')" type="button">Last 1 month</button>
+                <button class="preset-btn" data-n="3" data-unit="month" onclick="applyPreset(3,'month')" type="button">Last 3 months</button>
+                <button class="preset-btn" data-n="6" data-unit="month" onclick="applyPreset(6,'month')" type="button">Last 6 months</button>
+                <button class="preset-btn" data-n="1" data-unit="year" onclick="applyPreset(1,'year')" type="button">Last year</button>
+              </div>
+              <div class="preset-divider"></div>
+              <div class="preset-custom">
+                <div class="date-inputs">
+                  <input type="date" id="date-from" onchange="onCustomDateChange()" />
+                  <span style="color:#d1d5db;font-size:.75rem">→</span>
+                  <input type="date" id="date-to" onchange="onCustomDateChange()" />
+                </div>
               </div>
             </div>
           </div>
+          <select class="filter-select" id="compare-sel" onchange="fetchSales()">
+            <option value="none">No comparison</option>
+            <option value="prev">Previous period</option>
+            <option value="1month">vs. 1 month ago</option>
+            <option value="3months">vs. 3 months ago</option>
+            <option value="6months">vs. 6 months ago</option>
+            <option value="1year">vs. 1 year ago</option>
+          </select>
         </div>
-        <select class="filter-select" id="compare-sel">
-          <option value="none">No comparison</option>
-          <option value="prev">Previous period</option>
-          <option value="1month">vs. 1 month ago</option>
-          <option value="3months">vs. 3 months ago</option>
-          <option value="6months">vs. 6 months ago</option>
-          <option value="1year">vs. 1 year ago</option>
-        </select>
       </div>
       <!-- Row 2: product filter -->
       <div class="filter-row">
@@ -493,17 +568,37 @@
     </div>
     <div id="chart-wrap">
       <div class="chart-placeholder" id="chart-placeholder">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 13l4-5 3 3 3-4 2 2" stroke="#d1d5db" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg width="64" height="48" viewBox="0 0 64 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4"  y="28" width="10" height="16" rx="2" fill="#e5e7eb"/>
+          <rect x="18" y="18" width="10" height="26" rx="2" fill="#e5e7eb"/>
+          <rect x="32" y="10" width="10" height="34" rx="2" fill="#e5e7eb"/>
+          <rect x="46" y="22" width="10" height="22" rx="2" fill="#e5e7eb"/>
+          <line x1="2"  y1="44" x2="62" y2="44" stroke="#e5e7eb" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="2"  y1="44" x2="2"  y2="6"  stroke="#e5e7eb" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
         Fetch data to see the chart
+      </div>
+      <div id="chart-skel">
+        <div class="skel-bar" style="height:42%"></div>
+        <div class="skel-bar" style="height:68%"></div>
+        <div class="skel-bar" style="height:52%"></div>
+        <div class="skel-bar" style="height:85%"></div>
+        <div class="skel-bar" style="height:38%"></div>
+        <div class="skel-bar" style="height:62%"></div>
       </div>
       <div id="main-chart" style="display:none"></div>
     </div>
 
     <!-- Transactions -->
     <div class="tx-section">
-      <div class="section-hd" id="section-hd-table" style="margin-top:1.4rem">Transactions</div>
-      <div id="tx-container">
-        <div class="tx-empty">Fetch data to see transactions</div>
+      <div class="tx-section-hd">
+        <div class="section-hd" id="section-hd-table">Transactions</div>
+        <span class="tbl-count" id="tbl-count"></span>
+      </div>
+      <div class="tx-scroll">
+        <div id="tx-container">
+          <div class="tx-empty">Fetch data to see transactions</div>
+        </div>
       </div>
     </div>
 
@@ -592,7 +687,7 @@
   let _datePanelOpen    = false;
   let _datePanelHandler = null;
 
-  /* ── Init: apply 1-month preset ── */
+  /* ── Init: apply 1-month preset (triggers auto-fetch) ── */
   applyPreset(1, 'month');
 
   /* ── Preset / date panel ── */
@@ -608,6 +703,7 @@
     if (btn) btn.classList.add('active');
     updateDateLabel();
     closeDatePanel();
+    fetchSales();
   }
 
   function toggleDatePanel() {
@@ -616,6 +712,7 @@
 
   function openDatePanel() {
     document.getElementById('date-panel').style.display = 'block';
+    document.getElementById('date-btn').classList.add('open');
     _datePanelOpen = true;
     setTimeout(() => {
       _datePanelHandler = function(e) {
@@ -628,6 +725,7 @@
 
   function closeDatePanel() {
     document.getElementById('date-panel').style.display = 'none';
+    document.getElementById('date-btn').classList.remove('open');
     _datePanelOpen = false;
     if (_datePanelHandler) {
       document.removeEventListener('click', _datePanelHandler);
@@ -737,6 +835,9 @@
         prevOrders = (compareRange && results[1]?.ok) ? await results[1].json() : [];
       }
       renderAll();
+      const lf = document.getElementById('last-fetched');
+      lf.textContent = 'Updated just now';
+      lf.classList.add('visible');
     } catch { showErr('Network error — is the server running?'); }
     finally  { setBusy(false); }
   }
@@ -857,6 +958,7 @@
     });
 
     show('main-chart'); hide('chart-placeholder');
+    document.getElementById('chart-skel').style.display = 'none';
 
     const hoverTpl = measure === 'qty'
       ? '<b>%{x|%b %d}</b>  %{y:,} orders<extra></extra>'
@@ -916,6 +1018,7 @@
 
   /* ── Chart — lines (horizontal bar, top 12 products) ── */
   function renderChartLines(data, measure = 'revenue') {
+    document.getElementById('chart-skel').style.display = 'none';
     if (!data.length) { hide('main-chart'); show('chart-placeholder'); return; }
 
     const byProduct = {};
@@ -965,13 +1068,21 @@
     return `<span class="ch-tag ${cls}">${esc(ch)}</span>`;
   }
 
+  /* ── Date format helper — "Jan 15" ── */
+  function fmtDate(s) {
+    const d = new Date(s + 'T00:00:00');
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
   /* ── Table — orders ── */
   function renderTable(data) {
     const wrap = document.getElementById('tx-container');
     if (!data.length) {
       wrap.innerHTML = '<div class="tx-empty">No orders found for this period.</div>';
+      set('tbl-count', '');
       return;
     }
+    set('tbl-count', data.length.toLocaleString());
     const rows = data.slice(0, 60).map((o) => {
       const ch    = o.channel || o.partner_name || '—';
       const init  = ch[0].toUpperCase();
@@ -987,7 +1098,7 @@
         </div></td>
         <td style="color:#6b7280">${esc(o.name)}</td>
         <td><span class="badge ok">● Confirmed</span></td>
-        <td style="color:#6b7280">${date}</td>
+        <td style="color:#6b7280" title="${esc(date)}">${fmtDate(date)}</td>
         <td class="td-r">$${fmt(o.amount_total)}</td>
       </tr>`;
     }).join('');
@@ -1005,6 +1116,7 @@
     const wrap = document.getElementById('tx-container');
     if (!data.length) {
       wrap.innerHTML = '<div class="tx-empty">No products found for this period.</div>';
+      set('tbl-count', '');
       return;
     }
     const byProduct = {};
@@ -1014,6 +1126,7 @@
       byProduct[l.product_name].revenue += l.price_subtotal;
     }
     const sorted = Object.entries(byProduct).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 60);
+    set('tbl-count', sorted.length.toLocaleString());
     const rows = sorted.map(([name, v]) => `<tr>
       <td>${esc(name)}</td>
       <td style="color:#6b7280">${esc(v.sku || '—')}</td>
@@ -1084,7 +1197,7 @@
       const n = o.channel || o.partner_name || 'Unknown';
       prevBy[n] = (prevBy[n] || 0) + o.amount_total;
     }
-    const sorted    = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const sorted    = Object.entries(by).sort((a, b) => b[1] - a[1]);
     const showDelta = prev.length > 0;
     const list = document.getElementById('bk-list');
     if (!sorted.length) {
@@ -1156,6 +1269,50 @@
     btn.innerHTML = on
       ? `<svg class="spinner" width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.5" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/><path d="M6 1.5A4.5 4.5 0 0 1 10.5 6" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg> Loading…`
       : `<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5 1v8M1 5h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> Fetch Data`;
+
+    if (on) {
+      /* Stat card skeletons */
+      ['sv-orders','sv-revenue','sv-avg','sv-customers'].forEach(id => {
+        document.getElementById(id).innerHTML = '<span class="skel skel-val"></span>';
+      });
+      ['ss-orders','ss-revenue','ss-avg','ss-customers'].forEach(id => {
+        document.getElementById(id).innerHTML = '<span class="skel skel-sub"></span>';
+      });
+      /* Chart skeleton */
+      hide('chart-placeholder');
+      hide('main-chart');
+      document.getElementById('chart-skel').style.display = 'flex';
+      /* Table skeleton */
+      const ghost = Array.from({ length: 5 }, () => `
+        <div class="skel-row">
+          <div class="skel-cell" style="width:28%;flex-shrink:0"></div>
+          <div class="skel-cell" style="width:18%;flex-shrink:0"></div>
+          <div class="skel-cell" style="width:14%;flex-shrink:0"></div>
+          <div class="skel-cell" style="width:10%;flex-shrink:0"></div>
+          <div class="skel-cell" style="width:10%;flex-shrink:0;margin-left:auto"></div>
+        </div>`).join('');
+      document.getElementById('tx-container').innerHTML = ghost;
+    } else {
+      /* Always hide chart skeleton */
+      document.getElementById('chart-skel').style.display = 'none';
+      /* Restore stat cards if skeletons still present (error path) */
+      ['sv-orders','sv-revenue','sv-avg','sv-customers'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el.querySelector('.skel')) el.textContent = '—';
+      });
+      ['ss-orders','ss-revenue','ss-avg','ss-customers'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el.querySelector('.skel')) { el.textContent = ''; el.className = 'stat-sub'; }
+      });
+      /* Restore table if skeleton still present */
+      const tc = document.getElementById('tx-container');
+      if (tc.querySelector('.skel-row')) {
+        tc.innerHTML = '<div class="tx-empty">Fetch data to see transactions</div>';
+      }
+      /* Restore chart placeholder if chart was not rendered */
+      const mc = document.getElementById('main-chart');
+      if (mc.style.display === 'none') show('chart-placeholder');
+    }
   }
 
   function showErr(msg) { const e = document.getElementById('error-msg'); e.textContent = msg; e.style.display = 'block'; }
@@ -1177,14 +1334,20 @@
     return AV_COLORS[Math.abs(h) % AV_COLORS.length];
   }
 
-  /* ── Delta HTML chip ── */
+  /* ── Delta HTML — arrow format ── */
   function deltaHtml(curr, prev) {
     if (prev === 0) return curr > 0 ? '<span class="delta-up">New</span>' : '';
-    const pct  = ((curr - prev) / Math.abs(prev)) * 100;
-    const sign = pct >= 0 ? '+' : '';
-    const cls  = pct >= 0 ? 'delta-up' : 'delta-down';
-    return `<span class="${cls}">(${sign}${pct.toFixed(1)}%)</span>`;
+    const pct   = ((curr - prev) / Math.abs(prev)) * 100;
+    const cls   = pct >= 0 ? 'delta-up' : 'delta-down';
+    const arrow = pct >= 0 ? '▲' : '▼';
+    return `<span class="${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</span>`;
   }
+
+  /* ── Keyboard shortcuts ── */
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.target.matches('input,select,textarea,button')) fetchSales();
+    if (e.key === 'Escape') closeDatePanel();
+  });
 </script>
 </body>
 </html>

@@ -59,9 +59,9 @@ uv remove <package>
 
 The package is `odoo_sales/` with three modules:
 
-- **`client.py`** — Core library. `OdooClient` authenticates via Odoo's XML-RPC API (`/xmlrpc/2/common` + `/xmlrpc/2/object`) and fetches `sale.order` records. `SaleOrder` is a frozen dataclass. Channel detection (`_detect_channel`) maps Odoo order fields to sales channels (Lazada, Website/WooCommerce, Shopee, Amazon, or Direct/partner name).
+- **`client.py`** — Core library. `OdooClient` authenticates via Odoo's XML-RPC API (`/xmlrpc/2/common` + `/xmlrpc/2/object`) and fetches `sale.order` records. `SaleOrder` and `SaleOrderLine` are frozen dataclasses; API responses are serialized via their `.to_dict()` methods — see `memory/data-models.md` for field reference. Channel detection (`_detect_channel`) maps Odoo order fields to sales channels (Lazada, Website/WooCommerce, Shopee, Amazon, or Direct/partner name).
 - **`cli.py`** — Thin wrapper around `OdooClient`; prints JSON to stdout. Entry point: `odoo-sales`.
-- **`web.py`** — FastAPI app serving a static dashboard (`static/index.html`) and a `/api/sales?from=&to=` endpoint. Entry point: `odoo-sales-web`. Protected by Google OIDC + Firestore allowlist; session via `SessionMiddleware`.
+- **`web.py`** — FastAPI app serving a static dashboard (`static/index.html`) with `/api/sales?from=&to=&product=` and `/api/lines?from=&to=&product=` endpoints. Entry point: `odoo-sales-web`. Protected by Google OIDC + Firestore allowlist; session via `SessionMiddleware`.
 - **`auth.py`** — `init_oauth()` registers the Google OIDC client; `is_allowed(email)` checks Firestore `allowed_users/{email}`; `get_session_user(request)` returns the session user dict or `None`.
 - **`users.py`** — CLI (`odoo-sales-users`) for managing the Firestore allowlist: `add`, `remove`, `list`.
 

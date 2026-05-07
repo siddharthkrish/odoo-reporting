@@ -1,5 +1,23 @@
+# Environment
 .env
+
+# Python
 __pycache__/
 *.pyc
-
+*.pyo
+*.pyd
 .venv/
+*.egg-info/
+dist/
+build/
+
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfvars
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/crash.log
+
+# macOS
+.DS_Store

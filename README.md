@@ -21,6 +21,13 @@ uv sync
 
 ## Usage
 
+By default, fetched sales results are stored in a local SQLite cache (`.odoo_sales_cache.sqlite`) so repeated queries for the same date range and filters do not make additional Odoo API calls.
+
+You can override the cache path or disable caching using environment variables:
+
+- `ODOO_CACHE_DB` - path to the sqlite cache file (default: `.odoo_sales_cache.sqlite`)
+- `ODOO_CACHE_ENABLED=false` - disable caching entirely
+
 Library:
 
 ```
