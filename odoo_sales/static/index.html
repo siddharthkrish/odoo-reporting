@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script src="/static/date_ranges.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -692,12 +693,9 @@
 
   /* ── Preset / date panel ── */
   function applyPreset(n, unit) {
-    const to   = new Date();
-    const from = new Date(to);
-    if (unit === 'month')     from.setMonth(from.getMonth() - n);
-    else if (unit === 'year') from.setFullYear(from.getFullYear() - n);
-    document.getElementById('date-from').value = iso(from);
-    document.getElementById('date-to').value   = iso(to);
+    const range = DateRanges.completedPresetRange(n, unit);
+    document.getElementById('date-from').value = range.from;
+    document.getElementById('date-to').value   = range.to;
     document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
     const btn = document.querySelector(`.preset-btn[data-n="${n}"][data-unit="${unit}"]`);
     if (btn) btn.classList.add('active');
@@ -1325,7 +1323,7 @@
   function setSubHtml(id, html, cls) { const e = document.getElementById(id); e.innerHTML = html; e.className = 'stat-sub ' + cls; }
   function enc(s) { return encodeURIComponent(s); }
   function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  function iso(d) { return d.toISOString().slice(0, 10); }
+  function iso(d) { return DateRanges.toLocalIso(d); }
   function fmt(n) { return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
   function avatarColor(name) {
