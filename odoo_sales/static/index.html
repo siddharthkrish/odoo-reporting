@@ -483,13 +483,14 @@
       <div class="filter-row">
         <div class="filter-group">
           <span class="filter-group-label">View</span>
-          <select class="filter-select" id="report-type-sel" onchange="renderAll()">
+          <select class="filter-select" id="report-type-sel" onchange="onReportTypeChange()">
             <option value="orders">Sales Orders</option>
             <option value="lines">Products / SKUs</option>
+            <option value="channels">Channels</option>
           </select>
           <select class="filter-select" id="measure-sel" onchange="renderAll()">
             <option value="revenue">Revenue</option>
-            <option value="qty">Items Sold</option>
+            <option value="qty">Orders</option>
           </select>
         </div>
         <div class="filter-divider"></div>
@@ -715,6 +716,7 @@
   /* ── Stat label maps ── */
   const STAT_LABELS_ORDERS = { orders: 'Total Orders',  revenue: 'Total Revenue', avg: 'Avg. Order Value', customers: 'Customers' };
   const STAT_LABELS_LINES  = { orders: 'Total Lines',   revenue: 'Total Revenue', avg: 'Avg. Quantity',    customers: 'Products'  };
+  const STAT_LABELS_CHANNELS = { orders: 'Total Orders', revenue: 'Total Revenue', avg: 'Avg. Order Value', customers: 'Channels' };
 
   /* ── State ── */
   let orders     = [];
@@ -921,7 +923,7 @@
   }
 
   /* ── Fetch ── */
-  async function fetchSales() {
+  async function fetchSales(useHardSync = true) {
     const from = document.getElementById('date-from').value;
     const to   = document.getElementById('date-to').value;
     if (!from || !to) { showErr('Please select both dates.'); return; }
@@ -938,7 +940,7 @@
 
     const reportType   = document.getElementById('report-type-sel').value;
     const productParam = chips.length ? `&product=${enc(chips.join(','))}` : '';
-    const hardSync     = document.getElementById('hard-sync').checked;
+    const hardSync     = useHardSync && document.getElementById('hard-sync').checked;
     const syncParam    = hardSync ? '&hard_sync=true' : '';
     updateComparisonSummary(from, to, compareRange);
 
@@ -987,6 +989,14 @@
       renderChartLines(lines, measure);
       renderTableLines(lines);
       updatePanel(lines.map(lineToFakeOrder), prevLines.map(lineToFakeOrder));
+    } else if (reportType === 'channels') {
+      setStatLabels(STAT_LABELS_CHANNELS);
+      document.getElementById('section-hd-chart').textContent = measure === 'qty' ? 'Orders by Channel' : 'Revenue by Channel';
+      document.getElementById('section-hd-table').textContent = 'Channels';
+      updateStatsChannels(orders, prevOrders);
+      renderChartChannels(orders, measure);
+      renderTableChannels(orders);
+      updatePanel(orders, prevOrders);
     } else {
       setStatLabels(STAT_LABELS_ORDERS);
       document.getElementById('section-hd-chart').textContent = 'Revenue';
@@ -996,6 +1006,13 @@
       renderTable(orders);
       updatePanel(orders, prevOrders);
     }
+  }
+
+  function onReportTypeChange() {
+    const reportType = document.getElementById('report-type-sel').value;
+    const qtyOption = document.querySelector('#measure-sel option[value="qty"]');
+    qtyOption.textContent = reportType === 'lines' ? 'Items Sold' : 'Orders';
+    fetchSales(false);
   }
 
   function setStatLabels(map) {
@@ -1073,6 +1090,40 @@
     set('rv-avg-sub',   'total items sold');
     document.getElementById('rv-total-lbl').textContent = 'Total Revenue';
     document.getElementById('rv-avg-lbl').textContent   = 'Items Sold';
+  }
+
+  /* ── Stats — channels ── */
+  function updateStatsChannels(data, prev = []) {
+    const total = data.reduce((s, o) => s + o.amount_total, 0);
+    const avg = data.length ? total / data.length : 0;
+    const channels = new Set(data.map(orderChannel)).size;
+
+    set('sv-orders', data.length.toLocaleString());
+    set('sv-revenue', '$' + fmt(total));
+    set('sv-avg', '$' + fmt(avg));
+    set('sv-customers', channels.toLocaleString());
+
+    if (prev.length > 0) {
+      const pTotal = prev.reduce((s, o) => s + o.amount_total, 0);
+      const pAvg = prev.length ? pTotal / prev.length : 0;
+      const pChannels = new Set(prev.map(orderChannel)).size;
+      setSubHtml('ss-orders', statDeltaHtml(data.length, prev.length, fmtCount), 'neutral');
+      setSubHtml('ss-revenue', statDeltaHtml(total, pTotal, fmtMoney), 'neutral');
+      setSubHtml('ss-avg', statDeltaHtml(avg, pAvg, fmtMoney), 'neutral');
+      setSubHtml('ss-customers', statDeltaHtml(channels, pChannels, fmtCount), 'neutral');
+    } else {
+      setSub('ss-orders', data.length + ' total', 'neutral');
+      setSub('ss-revenue', 'for selected period', 'neutral');
+      setSub('ss-avg', 'per order', 'neutral');
+      setSub('ss-customers', channels + ' active', 'neutral');
+    }
+
+    set('rv-total', '$' + fmt(total));
+    set('rv-avg', channels.toLocaleString());
+    set('rv-total-sub', data.length + ' orders in range');
+    set('rv-avg-sub', 'active sales channels');
+    document.getElementById('rv-total-lbl').textContent = 'Gross Volume';
+    document.getElementById('rv-avg-lbl').textContent = 'Channels';
   }
 
   /* ── Main chart — orders (time series) ── */
@@ -1194,6 +1245,42 @@
     hide('sparkline'); show('spark-placeholder');
   }
 
+  /* ── Chart — channels ── */
+  function renderChartChannels(data, measure = 'revenue') {
+    document.getElementById('chart-skel').style.display = 'none';
+    if (!data.length) { hide('main-chart'); show('chart-placeholder'); return; }
+
+    const sorted = aggregateChannels(data)
+      .sort((a, b) => measure === 'qty' ? b.orders - a.orders : b.revenue - a.revenue)
+      .reverse();
+    const names = sorted.map(v => v.name);
+    const values = sorted.map(v => measure === 'qty' ? v.orders : v.revenue);
+
+    show('main-chart'); hide('chart-placeholder');
+    Plotly.react('main-chart', [{
+      type: 'bar', orientation: 'h', x: values, y: names,
+      marker: { color: names.map((_, i) => BAR_COLORS[i % BAR_COLORS.length]) },
+      hovertemplate: measure === 'qty'
+        ? '<b>%{y}</b>  %{x:,.0f} orders<extra></extra>'
+        : '<b>%{y}</b>  $%{x:,.2f}<extra></extra>',
+      name: measure === 'qty' ? 'Orders' : 'Revenue'
+    }], {
+      margin: { t: 6, r: 20, b: 36, l: 120 },
+      xaxis: {
+        tickformat: ',.0f', gridcolor: '#f5f5fb', linecolor: 'transparent', tickcolor: 'transparent',
+        tickfont: { size: 10, color: '#b0b7c3', family: 'Inter' }, zeroline: false
+      },
+      yaxis: {
+        tickfont: { size: 10, color: '#374151', family: 'Inter' },
+        linecolor: 'transparent', tickcolor: 'transparent'
+      },
+      plot_bgcolor: '#fff', paper_bgcolor: '#fff', showlegend: false,
+      hoverlabel: { bgcolor: '#111', bordercolor: '#111', font: { color: '#fff', size: 11, family: 'Inter' } }
+    }, { responsive: true, displayModeBar: false });
+
+    hide('sparkline'); show('spark-placeholder');
+  }
+
   /* ── Channel tag helper ── */
   function channelTag(ch) {
     const map = { Lazada: 'ch-lazada', Website: 'ch-website', Shopee: 'ch-shopee', Amazon: 'ch-amazon' };
@@ -1275,6 +1362,54 @@
     </table>`;
   }
 
+  function orderChannel(order) {
+    return order.channel || 'Unknown';
+  }
+
+  function aggregateChannels(data) {
+    const byChannel = {};
+    for (const order of data) {
+      const name = orderChannel(order);
+      if (!byChannel[name]) byChannel[name] = { name, orders: 0, revenue: 0, customers: new Set() };
+      byChannel[name].orders += 1;
+      byChannel[name].revenue += order.amount_total;
+      if (order.partner_name) byChannel[name].customers.add(order.partner_name);
+    }
+    return Object.values(byChannel).map(v => ({
+      name: v.name,
+      orders: v.orders,
+      revenue: v.revenue,
+      customers: v.customers.size,
+      average: v.orders ? v.revenue / v.orders : 0,
+    }));
+  }
+
+  /* ── Table — channels ── */
+  function renderTableChannels(data) {
+    const wrap = document.getElementById('tx-container');
+    if (!data.length) {
+      wrap.innerHTML = '<div class="tx-empty">No channels found for this period.</div>';
+      set('tbl-count', '');
+      return;
+    }
+    const channels = aggregateChannels(data).sort((a, b) => b.revenue - a.revenue);
+    set('tbl-count', channels.length.toLocaleString());
+    const rows = channels.map(v => `<tr>
+      <td>${channelTag(v.name)}</td>
+      <td class="td-r">${v.orders.toLocaleString()}</td>
+      <td class="td-r">${v.customers.toLocaleString()}</td>
+      <td class="td-r">$${fmt(v.average)}</td>
+      <td class="td-r">$${fmt(v.revenue)}</td>
+    </tr>`).join('');
+
+    wrap.innerHTML = `<table>
+      <thead><tr>
+        <th>Channel</th><th class="r">Orders</th><th class="r">Customers</th><th class="r">Avg. Order</th><th class="r">Revenue</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }
+
   /* ── Line → fake order adapter (for updatePanel reuse) ── */
   function lineToFakeOrder(l) {
     return { amount_total: l.price_subtotal, partner_name: l.channel, channel: l.channel };
@@ -1323,11 +1458,11 @@
   function renderBreakdown(data, prev = []) {
     const by = {}, prevBy = {};
     for (const o of data) {
-      const n = o.channel || o.partner_name || 'Unknown';
+      const n = orderChannel(o);
       by[n] = (by[n] || 0) + o.amount_total;
     }
     for (const o of prev) {
-      const n = o.channel || o.partner_name || 'Unknown';
+      const n = orderChannel(o);
       prevBy[n] = (prevBy[n] || 0) + o.amount_total;
     }
     const sorted    = Object.entries(by).sort((a, b) => b[1] - a[1]);
@@ -1380,6 +1515,15 @@
       ].join(','));
       const blob = new Blob([[header.join(','), ...rows].join('\n')], { type: 'text/csv' });
       const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'sales-lines.csv' });
+      a.click(); URL.revokeObjectURL(a.href);
+    } else if (reportType === 'channels') {
+      if (!orders.length) { showErr('No data to export.'); return; }
+      const header = ['Channel', 'Orders', 'Customers', 'Average Order', 'Revenue'];
+      const rows = aggregateChannels(orders).map(v => [
+        `"${v.name.replace(/"/g, '""')}"`, v.orders, v.customers, v.average.toFixed(2), v.revenue.toFixed(2)
+      ].join(','));
+      const blob = new Blob([[header.join(','), ...rows].join('\n')], { type: 'text/csv' });
+      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'sales-channels.csv' });
       a.click(); URL.revokeObjectURL(a.href);
     } else {
       if (!orders.length) { showErr('No data to export.'); return; }
