@@ -199,7 +199,14 @@ class OdooClient:
             ranges.append((range_start, date_to))
         return ranges
 
-    def _sync_range(self, fs: firestore.Client, date_from: date, date_to: date) -> None:
+    def _sync_range(
+        self,
+        fs: firestore.Client,
+        date_from: date,
+        date_to: date,
+        *,
+        reconcile: bool = False,
+    ) -> None:
         """Fetch all orders and lines from Odoo for the date range and write to Firestore."""
         uid = self.authenticate()
         models = self._models()
@@ -214,7 +221,48 @@ class OdooClient:
         sku_map = self._resolve_skus(models, uid, line_records)
         lines = _build_sale_order_lines(line_records, order_map, sku_map)
 
+        if reconcile:
+            self._delete_stale_documents(
+                fs, _SALE_ORDERS, date_from, date_to, {str(order.id) for order in orders}
+            )
+            self._delete_stale_documents(
+                fs, _SALE_ORDER_LINES, date_from, date_to, {str(line.line_id) for line in lines}
+            )
+
         self._write_to_firestore(fs, orders, lines, date_from, date_to)
+
+    def _date_range_documents(
+        self,
+        fs: firestore.Client,
+        collection_name: str,
+        date_from: date,
+        date_to: date,
+    ) -> list[Any]:
+        return list(
+            fs.collection(collection_name)
+            .where(filter=firestore.FieldFilter("date_order_date", ">=", date_from.isoformat()))
+            .where(filter=firestore.FieldFilter("date_order_date", "<=", date_to.isoformat()))
+            .stream()
+        )
+
+    def _delete_stale_documents(
+        self,
+        fs: firestore.Client,
+        collection_name: str,
+        date_from: date,
+        date_to: date,
+        current_ids: set[str],
+    ) -> None:
+        stale_refs = [
+            doc.reference
+            for doc in self._date_range_documents(fs, collection_name, date_from, date_to)
+            if doc.id not in current_ids
+        ]
+        for i in range(0, len(stale_refs), _BATCH_SIZE):
+            batch = fs.batch()
+            for ref in stale_refs[i:i + _BATCH_SIZE]:
+                batch.delete(ref)
+            batch.commit()
 
     def _write_to_firestore(
         self,
@@ -237,7 +285,8 @@ class OdooClient:
             all_ops.append((fs.collection(_SALE_ORDER_LINES).document(str(line.line_id)), doc))
 
         current = date_from
-        while current <= date_to:
+        sync_through = min(date_to, datetime.now(timezone.utc).date())
+        while current <= sync_through:
             all_ops.append((
                 fs.collection(_SYNCED_DATES).document(current.isoformat()),
                 {"synced_at": datetime.now(timezone.utc).isoformat()},
@@ -251,21 +300,11 @@ class OdooClient:
             batch.commit()
 
     def _query_orders(self, fs: firestore.Client, date_from: date, date_to: date) -> list[SaleOrder]:
-        docs = (
-            fs.collection(_SALE_ORDERS)
-            .where(filter=firestore.FieldFilter("date_order_date", ">=", date_from.isoformat()))
-            .where(filter=firestore.FieldFilter("date_order_date", "<=", date_to.isoformat()))
-            .stream()
-        )
+        docs = self._date_range_documents(fs, _SALE_ORDERS, date_from, date_to)
         return [SaleOrder.from_dict(d) for doc in docs if (d := doc.to_dict()) is not None]
 
     def _query_lines(self, fs: firestore.Client, date_from: date, date_to: date) -> list[SaleOrderLine]:
-        docs = (
-            fs.collection(_SALE_ORDER_LINES)
-            .where(filter=firestore.FieldFilter("date_order_date", ">=", date_from.isoformat()))
-            .where(filter=firestore.FieldFilter("date_order_date", "<=", date_to.isoformat()))
-            .stream()
-        )
+        docs = self._date_range_documents(fs, _SALE_ORDER_LINES, date_from, date_to)
         return [SaleOrderLine.from_dict(d) for doc in docs if (d := doc.to_dict()) is not None]
 
     # ── Odoo fetch helpers ─────────────────────────────────────────────────────
@@ -307,6 +346,22 @@ class OdooClient:
             "sale.order.line", "search_read",
             [domain],
             {"fields": list(ORDER_LINE_FIELDS), "order": "order_id asc"},
+        ))
+
+    def _remote_count(
+        self,
+        model: str,
+        date_field: str,
+        date_from_dt: datetime,
+        date_to_dt: datetime,
+    ) -> int:
+        uid = self.authenticate()
+        domain: list[Any] = [
+            (date_field, ">=", _odoo_datetime_str(date_from_dt)),
+            (date_field, "<=", _odoo_datetime_str(date_to_dt)),
+        ]
+        return int(self._models().execute_kw(
+            self.db, uid, self.password, model, "search_count", [domain]
         ))
 
     def _resolve_skus(
@@ -414,6 +469,7 @@ class OdooClient:
         fields: Iterable[str] = DEFAULT_FIELDS,
         limit: int | None = None,
         product_filter: list[str] | str | None = None,
+        hard_sync: bool = False,
     ) -> list[SaleOrder]:
         date_from_dt = _coerce_to_datetime(date_from, is_start=True)
         date_to_dt = _coerce_to_datetime(date_to, is_start=False)
@@ -421,11 +477,27 @@ class OdooClient:
 
         fs = self._get_firestore()
         if fs is not None:
-            synced = self._get_synced_dates(fs, date_from_dt.date(), date_to_dt.date())
-            for range_start, range_end in self._missing_ranges(synced, date_from_dt.date(), date_to_dt.date()):
-                self._sync_range(fs, range_start, range_end)
+            if hard_sync:
+                self._sync_range(
+                    fs, date_from_dt.date(), date_to_dt.date(), reconcile=True
+                )
+                orders = self._query_orders(fs, date_from_dt.date(), date_to_dt.date())
+            else:
+                synced = self._get_synced_dates(fs, date_from_dt.date(), date_to_dt.date())
+                for range_start, range_end in self._missing_ranges(
+                    synced, date_from_dt.date(), date_to_dt.date()
+                ):
+                    self._sync_range(fs, range_start, range_end)
 
-            orders = self._query_orders(fs, date_from_dt.date(), date_to_dt.date())
+                orders = self._query_orders(fs, date_from_dt.date(), date_to_dt.date())
+                remote_count = self._remote_count(
+                    "sale.order", "date_order", date_from_dt, date_to_dt
+                )
+                if remote_count != len(orders):
+                    self._sync_range(
+                        fs, date_from_dt.date(), date_to_dt.date(), reconcile=True
+                    )
+                    orders = self._query_orders(fs, date_from_dt.date(), date_to_dt.date())
             if chips:
                 lines = self._query_lines(fs, date_from_dt.date(), date_to_dt.date())
                 matching_order_ids = {line.order_id for line in lines if _line_matches(line, chips)}
@@ -445,6 +517,7 @@ class OdooClient:
         *,
         product_filter: list[str] | str | None = None,
         limit: int | None = None,
+        hard_sync: bool = False,
     ) -> list[SaleOrderLine]:
         date_from_dt = _coerce_to_datetime(date_from, is_start=True)
         date_to_dt = _coerce_to_datetime(date_to, is_start=False)
@@ -452,11 +525,27 @@ class OdooClient:
 
         fs = self._get_firestore()
         if fs is not None:
-            synced = self._get_synced_dates(fs, date_from_dt.date(), date_to_dt.date())
-            for range_start, range_end in self._missing_ranges(synced, date_from_dt.date(), date_to_dt.date()):
-                self._sync_range(fs, range_start, range_end)
+            if hard_sync:
+                self._sync_range(
+                    fs, date_from_dt.date(), date_to_dt.date(), reconcile=True
+                )
+                lines = self._query_lines(fs, date_from_dt.date(), date_to_dt.date())
+            else:
+                synced = self._get_synced_dates(fs, date_from_dt.date(), date_to_dt.date())
+                for range_start, range_end in self._missing_ranges(
+                    synced, date_from_dt.date(), date_to_dt.date()
+                ):
+                    self._sync_range(fs, range_start, range_end)
 
-            lines = self._query_lines(fs, date_from_dt.date(), date_to_dt.date())
+                lines = self._query_lines(fs, date_from_dt.date(), date_to_dt.date())
+                remote_count = self._remote_count(
+                    "sale.order.line", "order_id.date_order", date_from_dt, date_to_dt
+                )
+                if remote_count != len(lines):
+                    self._sync_range(
+                        fs, date_from_dt.date(), date_to_dt.date(), reconcile=True
+                    )
+                    lines = self._query_lines(fs, date_from_dt.date(), date_to_dt.date())
             if chips:
                 lines = [l for l in lines if _line_matches(l, chips)]
 

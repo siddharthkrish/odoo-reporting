@@ -1,9 +1,16 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { completedPresetRange } = require('../odoo_sales/static/date_ranges.js');
+const { completedPresetRange, currentMonthRange } = require('../odoo_sales/static/date_ranges.js');
 
 const july13 = new Date(2026, 6, 13, 12);
+
+test('this month runs from the first day through today', () => {
+  assert.deepEqual(currentMonthRange(july13), {
+    from: '2026-07-01',
+    to: '2026-07-13',
+  });
+});
 
 test('last month is the previous complete calendar month', () => {
   assert.deepEqual(completedPresetRange(1, 'month', july13), {

@@ -91,6 +91,11 @@
     .btn-fetch:disabled { background: #9ca3af; cursor: not-allowed; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .btn-fetch .spinner { animation: spin .7s linear infinite; }
+    .sync-option {
+      display: flex; align-items: center; gap: .3rem; cursor: pointer;
+      color: #6b7280; font-size: .72rem; font-weight: 500; white-space: nowrap;
+    }
+    .sync-option input { accent-color: #111; cursor: pointer; }
 
     /* ── Filter bar ── */
     .filter-bar { display: flex; flex-direction: column; gap: .55rem; margin-bottom: 1.25rem; }
@@ -449,6 +454,10 @@
         </div>
         <a href="/logout" style="display:flex;align-items:center;text-decoration:none;color:#6b7280;font-size:.8rem;font-weight:500;padding:.3rem .55rem;border-radius:7px;border:1px solid #e5e7eb;transition:background .15s" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background=''">Sign out</a>
         <span class="last-fetched" id="last-fetched"></span>
+        <label class="sync-option" title="Fully refresh and reconcile the selected date range from Odoo">
+          <input type="checkbox" id="hard-sync" />
+          Hard sync
+        </label>
         <button class="btn-fetch" id="fetch-btn" onclick="fetchSales()">
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
             <path d="M5 1v8M1 5h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -484,6 +493,7 @@
             </button>
             <div class="date-panel" id="date-panel" style="display:none">
               <div class="preset-list">
+                <button class="preset-btn" data-n="0" data-unit="current-month" onclick="applyPreset(0,'current-month')" type="button">This month</button>
                 <button class="preset-btn" data-n="1" data-unit="month" onclick="applyPreset(1,'month')" type="button">Last 1 month</button>
                 <button class="preset-btn" data-n="3" data-unit="month" onclick="applyPreset(3,'month')" type="button">Last 3 months</button>
                 <button class="preset-btn" data-n="6" data-unit="month" onclick="applyPreset(6,'month')" type="button">Last 6 months</button>
@@ -688,12 +698,14 @@
   let _datePanelOpen    = false;
   let _datePanelHandler = null;
 
-  /* ── Init: apply 1-month preset (triggers auto-fetch) ── */
-  applyPreset(1, 'month');
+  /* ── Init: apply current-month preset (triggers auto-fetch) ── */
+  applyPreset(0, 'current-month');
 
   /* ── Preset / date panel ── */
   function applyPreset(n, unit) {
-    const range = DateRanges.completedPresetRange(n, unit);
+    const range = unit === 'current-month'
+      ? DateRanges.currentMonthRange()
+      : DateRanges.completedPresetRange(n, unit);
     document.getElementById('date-from').value = range.from;
     document.getElementById('date-to').value   = range.to;
     document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
@@ -806,11 +818,13 @@
 
     const reportType   = document.getElementById('report-type-sel').value;
     const productParam = chips.length ? `&product=${enc(chips.join(','))}` : '';
+    const hardSync     = document.getElementById('hard-sync').checked;
+    const syncParam    = hardSync ? '&hard_sync=true' : '';
     const compareRange = calcCompareRange(from, to);
 
     try {
       if (reportType === 'lines') {
-        const reqs = [fetch(`/api/lines?from=${enc(from)}&to=${enc(to)}${productParam}`)];
+        const reqs = [fetch(`/api/lines?from=${enc(from)}&to=${enc(to)}${productParam}${syncParam}`)];
         if (compareRange) {
           const { prevFrom, prevTo } = compareRange;
           reqs.push(fetch(`/api/lines?from=${enc(prevFrom)}&to=${enc(prevTo)}${productParam}`));
@@ -821,7 +835,7 @@
         lines     = data;
         prevLines = (compareRange && results[1]?.ok) ? await results[1].json() : [];
       } else {
-        const reqs = [fetch(`/api/sales?from=${enc(from)}&to=${enc(to)}${productParam}`)];
+        const reqs = [fetch(`/api/sales?from=${enc(from)}&to=${enc(to)}${productParam}${syncParam}`)];
         if (compareRange) {
           const { prevFrom, prevTo } = compareRange;
           reqs.push(fetch(`/api/sales?from=${enc(prevFrom)}&to=${enc(prevTo)}${productParam}`));
@@ -834,8 +848,9 @@
       }
       renderAll();
       const lf = document.getElementById('last-fetched');
-      lf.textContent = 'Updated just now';
+      lf.textContent = hardSync ? 'Hard sync complete' : 'Updated just now';
       lf.classList.add('visible');
+      if (hardSync) document.getElementById('hard-sync').checked = false;
     } catch { showErr('Network error — is the server running?'); }
     finally  { setBusy(false); }
   }

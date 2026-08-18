@@ -1,6 +1,6 @@
 ---
 name: odoo-xmlrpc-integration
-description: Integrate with Odoo using the XML-RPC API, including authentication with API keys, common endpoints, model access patterns, domains, and field selection. Use for tasks that query or update Odoo data via XML-RPC.
+description: Integrate with and debug this project's Odoo XML-RPC data, including authentication, read-only aggregate checks, model operations, domains, field selection, and secure access to the deployed API credential. Use for Odoo queries, reporting discrepancies, cache comparisons, or XML-RPC changes.
 ---
 
 # Odoo XML-RPC Integration
@@ -26,3 +26,4 @@ Use Odoo's XML-RPC endpoints for authentication and model operations. Prefer `se
 ## References
 
 - Read `references/xmlrpc.md` for endpoint patterns, examples, and common model methods.
+- Read `references/debug-access.md` when investigating reporting discrepancies or when local Odoo credentials fail.

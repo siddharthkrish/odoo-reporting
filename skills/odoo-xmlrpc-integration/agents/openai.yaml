@@ -1,3 +1,4 @@
 interface:
-  display_name: "Odoo Xmlrpc Integration"
-  short_description: "Help with Odoo Xmlrpc Integration tasks"
+  display_name: "Odoo Data Debugging"
+  short_description: "Query and reconcile Odoo reporting data"
+  default_prompt: "Use $odoo-xmlrpc-integration to investigate an Odoo reporting discrepancy safely."

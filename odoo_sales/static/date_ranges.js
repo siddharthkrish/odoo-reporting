@@ -10,6 +10,11 @@
     return `${year}-${month}-${day}`;
   }
 
+  function currentMonthRange(now = new Date()) {
+    const from = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { from: toLocalIso(from), to: toLocalIso(now) };
+  }
+
   function completedPresetRange(n, unit, now = new Date()) {
     if (!Number.isInteger(n) || n < 1) throw new RangeError('n must be a positive integer');
 
@@ -28,5 +33,5 @@
     return { from: toLocalIso(from), to: toLocalIso(to) };
   }
 
-  return { completedPresetRange, toLocalIso };
+  return { completedPresetRange, currentMonthRange, toLocalIso };
 });
