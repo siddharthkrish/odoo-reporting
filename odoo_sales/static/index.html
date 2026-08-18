@@ -212,9 +212,11 @@
     .stat-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.08); transform: translateY(-1px); }
     .stat-lbl { font-size: .7rem; color: #9ca3af; font-weight: 500; margin-bottom: .35rem; }
     .stat-val { font-size: 1.3rem; font-weight: 700; color: #111827; margin-bottom: .25rem; line-height: 1; }
-    .stat-sub { font-size: .7rem; font-weight: 500; color: #9ca3af; display: flex; align-items: center; gap: .2rem; }
+    .stat-sub { font-size: .7rem; font-weight: 500; color: #9ca3af; display: flex; align-items: center; gap: .25rem; flex-wrap: wrap; }
     .stat-sub.up   { color: #16a34a; }
     .stat-sub.down { color: #dc2626; }
+    .stat-actuals { color: #9ca3af; font-size: .67rem; font-weight: 500; white-space: nowrap; }
+    .stat-separator { color: #d1d5db; }
 
     /* ── Revenue section ── */
     .section-hd { font-size: .85rem; font-weight: 600; color: #111827; margin-bottom: .85rem; }
@@ -1018,10 +1020,10 @@
       const pTotal = prev.reduce((s, o) => s + o.amount_total, 0);
       const pAvg   = prev.length ? pTotal / prev.length : 0;
       const pCust  = new Set(prev.map(o => o.partner_name).filter(Boolean)).size;
-      setSubHtml('ss-orders',    deltaHtml(data.length, prev.length) || (data.length + ' total'), 'neutral');
-      setSubHtml('ss-revenue',   deltaHtml(total, pTotal)            || 'for selected period',    'neutral');
-      setSubHtml('ss-avg',       deltaHtml(avg, pAvg)                || 'per order',              'neutral');
-      setSubHtml('ss-customers', deltaHtml(customers, pCust)         || (customers + ' unique'),  'neutral');
+      setSubHtml('ss-orders',    statDeltaHtml(data.length, prev.length, fmtCount), 'neutral');
+      setSubHtml('ss-revenue',   statDeltaHtml(total, pTotal, fmtMoney),             'neutral');
+      setSubHtml('ss-avg',       statDeltaHtml(avg, pAvg, fmtMoney),                 'neutral');
+      setSubHtml('ss-customers', statDeltaHtml(customers, pCust, fmtCount),          'neutral');
     } else {
       setSub('ss-orders',    data.length + ' total', 'neutral');
       setSub('ss-revenue',   'for selected period',  'neutral');
@@ -1054,10 +1056,10 @@
       const pQty   = prev.reduce((s, l) => s + l.quantity, 0);
       const pAvgQ  = prev.length ? pQty / prev.length : 0;
       const pProds = new Set(prev.map(l => l.product_name)).size;
-      setSubHtml('ss-orders',    deltaHtml(data.length, prev.length)  || (data.length + ' lines'),   'neutral');
-      setSubHtml('ss-revenue',   deltaHtml(totalRevenue, pRev)        || 'for period',               'neutral');
-      setSubHtml('ss-avg',       deltaHtml(avgQty, pAvgQ)             || 'avg qty',                  'neutral');
-      setSubHtml('ss-customers', deltaHtml(uniqueProds, pProds)       || (uniqueProds + ' products'),'neutral');
+      setSubHtml('ss-orders',    statDeltaHtml(data.length, prev.length, fmtCount), 'neutral');
+      setSubHtml('ss-revenue',   statDeltaHtml(totalRevenue, pRev, fmtMoney),        'neutral');
+      setSubHtml('ss-avg',       statDeltaHtml(avgQty, pAvgQ, fmtOneDecimal),        'neutral');
+      setSubHtml('ss-customers', statDeltaHtml(uniqueProds, pProds, fmtCount),       'neutral');
     } else {
       setSub('ss-orders',    data.length + ' lines',    'neutral');
       setSub('ss-revenue',   'for period',              'neutral');
@@ -1457,6 +1459,9 @@
   function enc(s) { return encodeURIComponent(s); }
   function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function fmt(n) { return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function fmtMoney(n) { return '$' + fmt(n); }
+  function fmtCount(n) { return n.toLocaleString(); }
+  function fmtOneDecimal(n) { return n.toLocaleString(undefined, { maximumFractionDigits: 1 }); }
 
   function avatarColor(name) {
     let h = 0;
@@ -1471,6 +1476,12 @@
     const cls   = pct >= 0 ? 'delta-up' : 'delta-down';
     const arrow = pct >= 0 ? '▲' : '▼';
     return `<span class="${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</span>`;
+  }
+
+  function statDeltaHtml(curr, prev, formatter) {
+    const delta = deltaHtml(curr, prev);
+    const actuals = `<span class="stat-actuals">${esc(formatter(curr))} vs ${esc(formatter(prev))}</span>`;
+    return delta ? `${delta}<span class="stat-separator">·</span>${actuals}` : actuals;
   }
 
   /* ── Keyboard shortcuts ── */
