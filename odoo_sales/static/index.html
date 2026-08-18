@@ -320,6 +320,47 @@
     tbody tr:hover td { background: #fafafa; }
     .td-r { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: #111827; }
 
+    .channel-row td { transition: background .12s; }
+    .channel-row.is-open td { background: #f8f7ff; border-bottom-color: #ede9fe; }
+    .channel-drill-btn {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .2rem .25rem .2rem 0; border: none; background: none;
+      color: inherit; cursor: pointer; font: inherit; border-radius: 5px;
+    }
+    .channel-drill-btn:focus-visible { outline: 2px solid #4f5af6; outline-offset: 2px; }
+    .channel-drill-btn .ch-tag { margin-top: 0; }
+    .channel-chevron {
+      color: #9ca3af; transition: transform .15s ease; flex-shrink: 0;
+    }
+    .channel-drill-btn[aria-expanded="true"] .channel-chevron { transform: rotate(90deg); }
+    .channel-detail-row td {
+      padding: 0; background: #faf9ff; border-bottom: 1px solid #ede9fe;
+    }
+    .channel-detail {
+      padding: .75rem .8rem 1rem 2.15rem;
+      animation: drill-open .14s ease-out;
+    }
+    @keyframes drill-open {
+      from { opacity: 0; transform: translateY(-3px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .channel-detail-hd {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; margin-bottom: .55rem;
+      font-size: .72rem; color: #6b7280;
+    }
+    .channel-detail-hd strong { color: #374151; font-weight: 600; }
+    .channel-detail-table {
+      border: 1px solid #eceaf7; border-radius: 8px; overflow: hidden; background: #fff;
+    }
+    .channel-detail-table table { table-layout: fixed; }
+    .channel-detail-table thead th {
+      position: static; background: #f9f8fd; padding: .45rem .65rem;
+      font-size: .62rem;
+    }
+    .channel-detail-table tbody td { padding: .48rem .65rem; font-size: .76rem; }
+    .channel-detail-table tbody tr:last-child td { border-bottom: none; }
+
     .customer-cell { display: flex; align-items: center; gap: .6rem; }
     .av {
       width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
@@ -725,6 +766,7 @@
   let prevLines  = [];
   let activeTab  = 'revenue';
   let chips      = [];
+  let expandedChannel = null;
 
   /* ── Date panel state ── */
   let _datePanelOpen    = false;
@@ -969,6 +1011,7 @@
         orders     = data;
         prevOrders = (compareRange && results[1]?.ok) ? await results[1].json() : [];
       }
+      expandedChannel = null;
       renderAll();
       const lf = document.getElementById('last-fetched');
       lf.textContent = hardSync ? 'Hard sync complete' : 'Updated just now';
@@ -1395,13 +1438,48 @@
     }
     const channels = aggregateChannels(data).sort((a, b) => b.revenue - a.revenue);
     set('tbl-count', channels.length.toLocaleString());
-    const rows = channels.map(v => `<tr>
-      <td>${channelTag(v.name)}</td>
+    const rows = channels.map(v => {
+      const isOpen = expandedChannel === v.name;
+      const encodedName = encodeURIComponent(v.name);
+      const detailOrders = data
+        .filter(order => orderChannel(order) === v.name)
+        .sort((a, b) => String(b.date_order).localeCompare(String(a.date_order)));
+      const detailRows = detailOrders.map(order => {
+        const date = order.date_order.slice(0, 10);
+        return `<tr>
+          <td style="color:#6b7280">${fmtDate(date)}</td>
+          <td>${esc(order.name || '—')}</td>
+          <td title="${esc(order.partner_name || '—')}">${esc(order.partner_name || '—')}</td>
+          <td class="td-r">$${fmt(order.amount_total)}</td>
+        </tr>`;
+      }).join('');
+      const detail = isOpen ? `<tr class="channel-detail-row">
+        <td colspan="5">
+          <div class="channel-detail">
+            <div class="channel-detail-hd">
+              <span><strong>${esc(v.name)}</strong> contributing orders</span>
+              <span>${v.orders.toLocaleString()} order${v.orders === 1 ? '' : 's'} · $${fmt(v.revenue)}</span>
+            </div>
+            <div class="channel-detail-table">
+              <table>
+                <thead><tr><th>Date</th><th>Order</th><th>Customer</th><th class="r">Amount</th></tr></thead>
+                <tbody>${detailRows}</tbody>
+              </table>
+            </div>
+          </div>
+        </td>
+      </tr>` : '';
+      return `<tr class="channel-row${isOpen ? ' is-open' : ''}">
+      <td><button class="channel-drill-btn" type="button" data-channel="${encodedName}" aria-expanded="${isOpen}" onclick="toggleChannelDrilldown(this)">
+        <svg class="channel-chevron" width="7" height="10" viewBox="0 0 7 10" fill="none" aria-hidden="true"><path d="M1 1l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        ${channelTag(v.name)}
+      </button></td>
       <td class="td-r">${v.orders.toLocaleString()}</td>
       <td class="td-r">${v.customers.toLocaleString()}</td>
       <td class="td-r">$${fmt(v.average)}</td>
       <td class="td-r">$${fmt(v.revenue)}</td>
-    </tr>`).join('');
+    </tr>${detail}`;
+    }).join('');
 
     wrap.innerHTML = `<table>
       <thead><tr>
@@ -1409,6 +1487,15 @@
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
+  }
+
+  function toggleChannelDrilldown(button) {
+    const channel = decodeURIComponent(button.dataset.channel);
+    expandedChannel = expandedChannel === channel ? null : channel;
+    renderTableChannels(orders);
+    const currentButton = Array.from(document.querySelectorAll('.channel-drill-btn'))
+      .find(el => decodeURIComponent(el.dataset.channel) === channel);
+    if (currentButton) currentButton.focus({ preventScroll: true });
   }
 
   /* ── Line → fake order adapter (for updatePanel reuse) ── */
@@ -1602,7 +1689,14 @@
   function setSub(id, text, cls) { const e = document.getElementById(id); e.textContent = text; e.className = 'stat-sub ' + cls; }
   function setSubHtml(id, html, cls) { const e = document.getElementById(id); e.innerHTML = html; e.className = 'stat-sub ' + cls; }
   function enc(s) { return encodeURIComponent(s); }
-  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function esc(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
   function fmt(n) { return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function fmtMoney(n) { return '$' + fmt(n); }
   function fmtCount(n) { return n.toLocaleString(); }
