@@ -36,6 +36,14 @@ ORDER_LINE_FIELDS: tuple[str, ...] = (
     "price_subtotal",
 )
 
+POS_ORDER_LINE_FIELDS: tuple[str, ...] = (
+    "id",
+    "order_id",
+    "product_id",
+    "qty",
+    "price_subtotal",
+)
+
 POS_ORDER_FIELDS: tuple[str, ...] = (
     "id",
     "name",
@@ -490,6 +498,47 @@ class OdooClient:
         ))
         return [_pos_order_from_record(record) for record in records]
 
+    def _fetch_pos_lines_direct(
+        self,
+        date_from_dt: datetime,
+        date_to_dt: datetime,
+        chips: list[str] | None,
+    ) -> list[SaleOrderLine]:
+        uid = self.authenticate()
+        models = self._models()
+        domain: list[Any] = [
+            ("order_id.date_order", ">=", _odoo_datetime_str(date_from_dt)),
+            ("order_id.date_order", "<=", _odoo_datetime_str(date_to_dt)),
+            ("order_id.state", "in", ["paid", "done", "invoiced"]),
+        ]
+        if chips:
+            domain = _build_product_domain_lines(chips) + domain
+        records = cast(list[dict[str, Any]], models.execute_kw(
+            self.db, uid, self.password,
+            "pos.order.line", "search_read", [domain],
+            {"fields": list(POS_ORDER_LINE_FIELDS), "order": "order_id asc"},
+        ))
+        if not records:
+            return []
+
+        order_ids = list({
+            int(record["order_id"][0])
+            for record in records
+            if record.get("order_id") and record["order_id"] is not False
+        })
+        order_records = cast(list[dict[str, Any]], models.execute_kw(
+            self.db, uid, self.password,
+            "pos.order", "search_read", [[("id", "in", order_ids)]],
+            {"fields": list(POS_ORDER_FIELDS)},
+        ))
+        order_map = {
+            -order.id: order
+            for record in order_records
+            for order in [_pos_order_from_record(record)]
+        }
+        sku_map = self._resolve_skus(models, uid, records)
+        return _build_pos_order_lines(records, order_map, sku_map)
+
     def _fetch_amazon_fee_order_ids(
         self,
         date_from_dt: datetime,
@@ -633,6 +682,34 @@ class OdooClient:
         orders.sort(key=lambda order: order.date_order)
         return orders
 
+    def get_channel_order_lines(
+        self,
+        date_from: str | date | datetime,
+        date_to: str | date | datetime,
+        *,
+        product_filter: list[str] | str | None = None,
+        hard_sync: bool = False,
+    ) -> list[SaleOrderLine]:
+        """Return regular and POS product lines with channel attribution."""
+        date_from_dt = _coerce_to_datetime(date_from, is_start=True)
+        date_to_dt = _coerce_to_datetime(date_to, is_start=False)
+        chips = _normalize_chips(product_filter)
+        lines = self.get_order_lines(
+            date_from_dt,
+            date_to_dt,
+            product_filter=chips,
+            hard_sync=hard_sync,
+        )
+        if lines:
+            amazon_order_ids = self._fetch_amazon_fee_order_ids(date_from_dt, date_to_dt)
+            lines = [
+                replace(line, channel="Amazon") if line.order_id in amazon_order_ids else line
+                for line in lines
+            ]
+        lines.extend(self._fetch_pos_lines_direct(date_from_dt, date_to_dt, chips))
+        lines.sort(key=lambda line: (line.date_order, line.order_id, line.line_id))
+        return lines
+
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -680,6 +757,41 @@ def _build_sale_order_lines(
             sku=sku,
             quantity=float(r.get("product_uom_qty", 0.0)),
             price_subtotal=float(r.get("price_subtotal", 0.0)),
+            channel=order.channel,
+        ))
+    return lines
+
+
+def _build_pos_order_lines(
+    line_records: list[dict[str, Any]],
+    order_map: dict[int, SaleOrder],
+    sku_map: dict[int, str | None],
+) -> list[SaleOrderLine]:
+    lines: list[SaleOrderLine] = []
+    for record in line_records:
+        order_rel = record.get("order_id")
+        if not order_rel or order_rel is False:
+            continue
+        raw_order_id = int(order_rel[0])
+        order = order_map.get(raw_order_id)
+        if order is None:
+            continue
+        product_rel = record.get("product_id")
+        if product_rel and product_rel is not False:
+            product_name = str(product_rel[1])
+            sku = sku_map.get(int(product_rel[0]))
+        else:
+            product_name = "Unknown"
+            sku = None
+        lines.append(SaleOrderLine(
+            line_id=-int(record["id"]),
+            order_id=order.id,
+            order_name=order.name,
+            date_order=order.date_order,
+            product_name=product_name,
+            sku=sku,
+            quantity=float(record.get("qty", 0.0)),
+            price_subtotal=float(record.get("price_subtotal", 0.0)),
             channel=order.channel,
         ))
     return lines

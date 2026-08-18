@@ -998,17 +998,35 @@
         if (!results[0].ok) { showErr(data.detail || 'Server error.'); return; }
         lines     = data;
         prevLines = (compareRange && results[1]?.ok) ? await results[1].json() : [];
-      } else {
-        const endpoint = reportType === 'channels' ? '/api/channels' : '/api/sales';
-        const reqs = [fetch(`${endpoint}?from=${enc(from)}&to=${enc(to)}${productParam}${syncParam}`)];
+      } else if (reportType === 'channels') {
+        const channelUrl = `/api/channels?from=${enc(from)}&to=${enc(to)}${productParam}${syncParam}`;
+        const currentResponse = hardSync ? await fetch(channelUrl) : null;
+        const reqs = [
+          currentResponse ? Promise.resolve(currentResponse) : fetch(channelUrl),
+          fetch(`/api/channel-lines?from=${enc(from)}&to=${enc(to)}${productParam}`),
+        ];
         if (compareRange) {
           const { prevFrom, prevTo } = compareRange;
-          reqs.push(fetch(`${endpoint}?from=${enc(prevFrom)}&to=${enc(prevTo)}${productParam}`));
+          reqs.push(fetch(`/api/channels?from=${enc(prevFrom)}&to=${enc(prevTo)}${productParam}`));
         }
         const results = await Promise.all(reqs);
-        const data    = await results[0].json();
+        const data = await results[0].json();
+        const channelLineData = await results[1].json();
         if (!results[0].ok) { showErr(data.detail || 'Server error.'); return; }
-        orders     = data;
+        if (!results[1].ok) { showErr(channelLineData.detail || 'Could not load channel products.'); return; }
+        orders = data;
+        lines = channelLineData;
+        prevOrders = (compareRange && results[2]?.ok) ? await results[2].json() : [];
+      } else {
+        const reqs = [fetch(`/api/sales?from=${enc(from)}&to=${enc(to)}${productParam}${syncParam}`)];
+        if (compareRange) {
+          const { prevFrom, prevTo } = compareRange;
+          reqs.push(fetch(`/api/sales?from=${enc(prevFrom)}&to=${enc(prevTo)}${productParam}`));
+        }
+        const results = await Promise.all(reqs);
+        const data = await results[0].json();
+        if (!results[0].ok) { showErr(data.detail || 'Server error.'); return; }
+        orders = data;
         prevOrders = (compareRange && results[1]?.ok) ? await results[1].json() : [];
       }
       expandedChannel = null;
@@ -1441,31 +1459,52 @@
     const rows = channels.map(v => {
       const isOpen = expandedChannel === v.name;
       const encodedName = encodeURIComponent(v.name);
-      const detailOrders = data
-        .filter(order => orderChannel(order) === v.name)
-        .sort((a, b) => String(b.date_order).localeCompare(String(a.date_order)));
-      const detailRows = detailOrders.map(order => {
-        const date = order.date_order.slice(0, 10);
+      const byProduct = {};
+      const channelLines = lines.filter(item => orderChannel(item) === v.name);
+      const lineSalesByOrder = {};
+      for (const line of channelLines) {
+        lineSalesByOrder[line.order_id] = (lineSalesByOrder[line.order_id] || 0) + line.price_subtotal;
+      }
+      const ordersById = Object.fromEntries(
+        data.filter(order => orderChannel(order) === v.name).map(order => [order.id, order])
+      );
+      for (const line of channelLines) {
+        const key = `${line.product_name}\u0000${line.sku || ''}`;
+        if (!byProduct[key]) {
+          byProduct[key] = { name: line.product_name, sku: line.sku, qty: 0, revenue: 0 };
+        }
+        const order = ordersById[line.order_id];
+        const orderLineSales = lineSalesByOrder[line.order_id];
+        const allocatedSales = order && orderLineSales
+          ? order.amount_total * (line.price_subtotal / orderLineSales)
+          : line.price_subtotal;
+        byProduct[key].qty += line.quantity;
+        byProduct[key].revenue += allocatedSales;
+      }
+      const products = Object.values(byProduct).sort((a, b) => b.revenue - a.revenue);
+      const totalQty = products.reduce((sum, product) => sum + product.qty, 0);
+      const productRevenue = products.reduce((sum, product) => sum + product.revenue, 0);
+      const detailRows = products.map(product => {
         return `<tr>
-          <td style="color:#6b7280">${fmtDate(date)}</td>
-          <td>${esc(order.name || '—')}</td>
-          <td title="${esc(order.partner_name || '—')}">${esc(order.partner_name || '—')}</td>
-          <td class="td-r">$${fmt(order.amount_total)}</td>
+          <td title="${esc(product.name)}">${esc(product.name)}</td>
+          <td style="color:#6b7280">${esc(product.sku || '—')}</td>
+          <td class="td-r">${product.qty.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+          <td class="td-r">$${fmt(product.revenue)}</td>
         </tr>`;
       }).join('');
       const detail = isOpen ? `<tr class="channel-detail-row">
         <td colspan="5">
           <div class="channel-detail">
             <div class="channel-detail-hd">
-              <span><strong>${esc(v.name)}</strong> contributing orders</span>
-              <span>${v.orders.toLocaleString()} order${v.orders === 1 ? '' : 's'} · $${fmt(v.revenue)}</span>
+              <span><strong>${esc(v.name)}</strong> sales by product</span>
+              <span>${products.length.toLocaleString()} product${products.length === 1 ? '' : 's'} · ${totalQty.toLocaleString(undefined, { maximumFractionDigits: 2 })} items · $${fmt(productRevenue)}</span>
             </div>
-            <div class="channel-detail-table">
+            ${products.length ? `<div class="channel-detail-table">
               <table>
-                <thead><tr><th>Date</th><th>Order</th><th>Customer</th><th class="r">Amount</th></tr></thead>
+                <thead><tr><th>Product</th><th>SKU</th><th class="r">Items Sold</th><th class="r">Sales</th></tr></thead>
                 <tbody>${detailRows}</tbody>
               </table>
-            </div>
+            </div>` : '<div class="tx-empty" style="padding:1rem">No product lines found for this channel.</div>'}
           </div>
         </td>
       </tr>` : '';
