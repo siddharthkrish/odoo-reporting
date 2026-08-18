@@ -13,7 +13,6 @@ _SYNCED_DATES = "synced_dates"
 _SALE_ORDERS = "sale_orders"
 _SALE_ORDER_LINES = "sale_order_lines"
 _BATCH_SIZE = 400  # stay under Firestore's 500-op batch limit
-_REGULAR_CHANNELS = {"Lazada", "Website", "Shopee", "Amazon", "Direct"}
 
 DEFAULT_FIELDS: tuple[str, ...] = (
     "id",
@@ -600,15 +599,12 @@ class OdooClient:
         date_from_dt = _coerce_to_datetime(date_from, is_start=True)
         date_to_dt = _coerce_to_datetime(date_to, is_start=False)
         chips = _normalize_chips(product_filter)
-        orders = [
-            _normalize_regular_order_channel(order)
-            for order in self.get_sales_data(
-                date_from_dt,
-                date_to_dt,
-                product_filter=chips,
-                hard_sync=hard_sync,
-            )
-        ]
+        orders = self.get_sales_data(
+            date_from_dt,
+            date_to_dt,
+            product_filter=chips,
+            hard_sync=hard_sync,
+        )
         orders.extend(self._fetch_pos_orders_direct(date_from_dt, date_to_dt, chips))
         orders.sort(key=lambda order: order.date_order)
         return orders
@@ -732,21 +728,7 @@ def _pos_order_from_record(record: dict[str, Any]) -> SaleOrder:
     )
 
 
-def _normalize_regular_order_channel(order: SaleOrder) -> SaleOrder:
-    if order.channel in _REGULAR_CHANNELS:
-        return order
-    return SaleOrder(
-        id=order.id,
-        name=order.name,
-        date_order=order.date_order,
-        amount_total=order.amount_total,
-        partner_name=order.partner_name,
-        currency_name=order.currency_name,
-        channel="Direct",
-    )
-
-
-def _detect_channel(record: dict[str, Any], _partner_name: str | None) -> str:
+def _detect_channel(record: dict[str, Any], partner_name: str | None) -> str:
     if bool(record.get("lazada_order_id")):
         return "Lazada"
     woo_id = record.get("woocommerce_order_id")
@@ -757,7 +739,7 @@ def _detect_channel(record: dict[str, Any], _partner_name: str | None) -> str:
     origin = str(record.get("origin") or "")
     if origin.lower().startswith("amazon"):
         return "Amazon"
-    return "Direct"
+    return partner_name or "Direct"
 
 
 def _relational_name(value: Any) -> str | None:

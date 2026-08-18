@@ -16,15 +16,17 @@ class ChannelClient(OdooClient):
         super().__init__("https://example.com", "db", "user", "key")
 
     def get_sales_data(self, *args, **kwargs) -> list[SaleOrder]:
-        return [SaleOrder(1, "SO1", datetime(2025, 2, 12, 10), 20, "Person", "SGD", "Person")]
+        return [SaleOrder(1, "SO1", datetime(2025, 2, 12, 10), 20, "Isetan", "SGD", "Isetan")]
 
     def _fetch_pos_orders_direct(self, *args, **kwargs) -> list[SaleOrder]:
         return [SaleOrder(-2, "POS1", datetime(2025, 2, 12, 9), 30, "Person", "SGD", "Glamorous Giving 2025")]
 
 
 class ChannelTests(unittest.TestCase):
-    def test_direct_sales_do_not_use_customer_as_channel(self) -> None:
-        self.assertEqual(_detect_channel({}, "Individual Customer"), "Direct")
+    def test_invoice_partner_is_used_as_channel(self) -> None:
+        self.assertEqual(_detect_channel({}, "Redmart"), "Redmart")
+        self.assertEqual(_detect_channel({}, "The Green Collective"), "The Green Collective")
+        self.assertEqual(_detect_channel({}, "Isetan"), "Isetan")
 
     def test_pos_order_uses_point_of_sale_name_as_channel(self) -> None:
         order = _pos_order_from_record({
@@ -43,7 +45,7 @@ class ChannelTests(unittest.TestCase):
     def test_channel_data_combines_and_sorts_regular_and_pos_sales(self) -> None:
         result = ChannelClient().get_channel_sales_data("2025-02-12", "2025-02-12")
 
-        self.assertEqual([order.channel for order in result], ["Glamorous Giving 2025", "Direct"])
+        self.assertEqual([order.channel for order in result], ["Glamorous Giving 2025", "Isetan"])
 
 
 if __name__ == "__main__":
