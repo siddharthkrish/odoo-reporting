@@ -1,7 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { completedPresetRange, currentMonthRange } = require('../odoo_sales/static/date_ranges.js');
+const {
+  completedPresetRange,
+  currentMonthRange,
+  previousPeriodRange,
+  samePeriodPreviousYearRange,
+} = require('../odoo_sales/static/date_ranges.js');
 
 const july13 = new Date(2026, 6, 13, 12);
 
@@ -42,5 +47,26 @@ test('last year is the previous complete calendar year', () => {
   assert.deepEqual(completedPresetRange(1, 'year', july13), {
     from: '2025-01-01',
     to: '2025-12-31',
+  });
+});
+
+test('previous period has the same inclusive number of days', () => {
+  assert.deepEqual(previousPeriodRange('2026-07-01', '2026-07-13'), {
+    prevFrom: '2026-06-18',
+    prevTo: '2026-06-30',
+  });
+});
+
+test('same period previous year preserves the calendar dates', () => {
+  assert.deepEqual(samePeriodPreviousYearRange('2026-07-01', '2026-07-13'), {
+    prevFrom: '2025-07-01',
+    prevTo: '2025-07-13',
+  });
+});
+
+test('same period previous year clamps leap day to February 28', () => {
+  assert.deepEqual(samePeriodPreviousYearRange('2024-02-29', '2024-03-01'), {
+    prevFrom: '2023-02-28',
+    prevTo: '2023-03-01',
   });
 });

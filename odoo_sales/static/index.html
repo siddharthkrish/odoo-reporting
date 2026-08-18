@@ -190,6 +190,14 @@
       font-size: .82rem; margin-bottom: 1.1rem;
     }
 
+    .comparison-summary {
+      display: none; align-items: center; gap: .45rem;
+      margin: -.25rem 0 .8rem; color: #6b7280; font-size: .76rem;
+    }
+    .comparison-summary.visible { display: flex; }
+    .comparison-summary strong { color: #374151; font-weight: 600; }
+    .comparison-summary-dot { color: #c4b5fd; }
+
     /* ── Stat cards ── */
     .stat-grid {
       display: grid;
@@ -509,14 +517,28 @@
               </div>
             </div>
           </div>
-          <select class="filter-select" id="compare-sel" onchange="fetchSales()">
-            <option value="none">No comparison</option>
-            <option value="prev">Previous period</option>
-            <option value="1month">vs. 1 month ago</option>
-            <option value="3months">vs. 3 months ago</option>
-            <option value="6months">vs. 6 months ago</option>
-            <option value="1year">vs. 1 year ago</option>
-          </select>
+          <div class="date-dropdown" id="compare-dd">
+            <button class="date-btn" id="compare-btn" onclick="toggleComparePanel()" type="button">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0;color:#9ca3af"><path d="M2 4h8M8 2l2 2-2 2M11 9H3M5 7L3 9l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span id="compare-label">No comparison</span>
+              <svg width="10" height="6" viewBox="0 0 10 6" fill="none" style="flex-shrink:0;color:#9ca3af"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="date-panel" id="compare-panel" style="display:none">
+              <div class="preset-list">
+                <button class="preset-btn active" data-compare-mode="none" onclick="applyComparePreset('none')" type="button">No comparison</button>
+                <button class="preset-btn" data-compare-mode="prev" onclick="applyComparePreset('prev')" type="button">Previous period</button>
+                <button class="preset-btn" data-compare-mode="year" onclick="applyComparePreset('year')" type="button">Same period previous year</button>
+              </div>
+              <div class="preset-divider"></div>
+              <div class="preset-custom">
+                <div class="date-inputs">
+                  <input type="date" id="compare-from" aria-label="Comparison start date" onchange="onCompareCustomDateChange()" />
+                  <span style="color:#d1d5db;font-size:.75rem">→</span>
+                  <input type="date" id="compare-to" aria-label="Comparison end date" onchange="onCompareCustomDateChange()" />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <!-- Row 2: product filter -->
@@ -530,6 +552,12 @@
     </div>
 
     <div id="error-msg"></div>
+
+    <div class="comparison-summary" id="comparison-summary" aria-live="polite">
+      <span id="comparison-primary"></span>
+      <span class="comparison-summary-dot">•</span>
+      <span id="comparison-secondary"></span>
+    </div>
 
     <!-- Stat cards -->
     <div class="stat-grid">
@@ -697,6 +725,9 @@
   /* ── Date panel state ── */
   let _datePanelOpen    = false;
   let _datePanelHandler = null;
+  let _comparePanelOpen    = false;
+  let _comparePanelHandler = null;
+  let compareMode = 'none';
 
   /* ── Init: apply current-month preset (triggers auto-fetch) ── */
   applyPreset(0, 'current-month');
@@ -708,8 +739,8 @@
       : DateRanges.completedPresetRange(n, unit);
     document.getElementById('date-from').value = range.from;
     document.getElementById('date-to').value   = range.to;
-    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-    const btn = document.querySelector(`.preset-btn[data-n="${n}"][data-unit="${unit}"]`);
+    document.querySelectorAll('#date-panel .preset-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector(`#date-panel .preset-btn[data-n="${n}"][data-unit="${unit}"]`);
     if (btn) btn.classList.add('active');
     updateDateLabel();
     closeDatePanel();
@@ -721,6 +752,7 @@
   }
 
   function openDatePanel() {
+    closeComparePanel();
     document.getElementById('date-panel').style.display = 'block';
     document.getElementById('date-btn').classList.add('open');
     _datePanelOpen = true;
@@ -744,7 +776,7 @@
   }
 
   function onCustomDateChange() {
-    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#date-panel .preset-btn').forEach(b => b.classList.remove('active'));
     updateDateLabel();
   }
 
@@ -760,25 +792,104 @@
     span.textContent = `${fmtFrom} – ${fmtTo}`;
   }
 
-  /* ── Comparison range ── */
-  function calcCompareRange(from, to) {
-    const mode = document.getElementById('compare-sel').value;
-    if (mode === 'none') return null;
-    const a = new Date(from + 'T00:00:00');
-    const b = new Date(to   + 'T00:00:00');
-    if (mode === 'prev') {
-      const days     = Math.round((b - a) / 86400000) + 1;
-      const prevTo   = new Date(a); prevTo.setDate(prevTo.getDate() - 1);
-      const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - (days - 1));
-      return { prevFrom: iso(prevFrom), prevTo: iso(prevTo) };
+  /* ── Comparison range / panel ── */
+  function toggleComparePanel() {
+    if (_comparePanelOpen) { closeComparePanel(); } else { openComparePanel(); }
+  }
+
+  function openComparePanel() {
+    closeDatePanel();
+    document.getElementById('compare-panel').style.display = 'block';
+    document.getElementById('compare-btn').classList.add('open');
+    _comparePanelOpen = true;
+    setTimeout(() => {
+      _comparePanelHandler = function(e) {
+        const dd = document.getElementById('compare-dd');
+        if (!dd.contains(e.target)) closeComparePanel();
+      };
+      document.addEventListener('click', _comparePanelHandler);
+    }, 0);
+  }
+
+  function closeComparePanel() {
+    document.getElementById('compare-panel').style.display = 'none';
+    document.getElementById('compare-btn').classList.remove('open');
+    _comparePanelOpen = false;
+    if (_comparePanelHandler) {
+      document.removeEventListener('click', _comparePanelHandler);
+      _comparePanelHandler = null;
     }
-    const shifts = { '1month': [1,'month'], '3months': [3,'month'], '6months': [6,'month'], '1year': [1,'year'] };
-    const [n, unit] = shifts[mode] || [1, 'month'];
-    const prevFrom = new Date(a);
-    const prevTo   = new Date(b);
-    if (unit === 'month') { prevFrom.setMonth(prevFrom.getMonth() - n); prevTo.setMonth(prevTo.getMonth() - n); }
-    else                  { prevFrom.setFullYear(prevFrom.getFullYear() - n); prevTo.setFullYear(prevTo.getFullYear() - n); }
-    return { prevFrom: iso(prevFrom), prevTo: iso(prevTo) };
+  }
+
+  function applyComparePreset(mode) {
+    compareMode = mode;
+    document.querySelectorAll('#compare-panel .preset-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector(`#compare-panel .preset-btn[data-compare-mode="${mode}"]`);
+    if (btn) btn.classList.add('active');
+    if (mode === 'none') {
+      document.getElementById('compare-from').value = '';
+      document.getElementById('compare-to').value = '';
+    }
+    document.getElementById('compare-label').textContent = compareModeLabel(mode);
+    closeComparePanel();
+    fetchSales();
+  }
+
+  function onCompareCustomDateChange() {
+    compareMode = 'custom';
+    document.querySelectorAll('#compare-panel .preset-btn').forEach(b => b.classList.remove('active'));
+    const from = document.getElementById('compare-from').value;
+    const to = document.getElementById('compare-to').value;
+    document.getElementById('compare-label').textContent = from && to
+      ? formatDateRange(from, to)
+      : 'Custom comparison';
+  }
+
+  function compareModeLabel(mode) {
+    if (mode === 'prev') return 'Previous period';
+    if (mode === 'year') return 'Same period previous year';
+    return 'No comparison';
+  }
+
+  function calcCompareRange(from, to) {
+    let range = null;
+    if (compareMode === 'prev') range = DateRanges.previousPeriodRange(from, to);
+    if (compareMode === 'year') range = DateRanges.samePeriodPreviousYearRange(from, to);
+    if (compareMode === 'custom') {
+      range = {
+        prevFrom: document.getElementById('compare-from').value,
+        prevTo: document.getElementById('compare-to').value,
+      };
+    }
+    if (range && compareMode !== 'custom') {
+      document.getElementById('compare-from').value = range.prevFrom;
+      document.getElementById('compare-to').value = range.prevTo;
+    }
+    return range;
+  }
+
+  function formatDateRange(from, to) {
+    const a = new Date(from + 'T00:00:00');
+    const b = new Date(to + 'T00:00:00');
+    const sameYear = a.getFullYear() === b.getFullYear();
+    const left = a.toLocaleDateString(undefined, {
+      month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }),
+    });
+    const right = b.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return `${left} – ${right}`;
+  }
+
+  function updateComparisonSummary(from, to, range) {
+    const summary = document.getElementById('comparison-summary');
+    if (!range) {
+      summary.classList.remove('visible');
+      return;
+    }
+    const primary = document.getElementById('comparison-primary');
+    const secondary = document.getElementById('comparison-secondary');
+    primary.innerHTML = `Selected <strong>${esc(formatDateRange(from, to))}</strong>`;
+    secondary.innerHTML = `Comparing <strong>${esc(formatDateRange(range.prevFrom, range.prevTo))}</strong>`;
+    summary.classList.add('visible');
   }
 
   /* ── Chip filter ── */
@@ -813,6 +924,13 @@
     const to   = document.getElementById('date-to').value;
     if (!from || !to) { showErr('Please select both dates.'); return; }
     if (from > to)    { showErr('Start date must be before end date.'); return; }
+    const compareRange = calcCompareRange(from, to);
+    if (compareMode === 'custom' && (!compareRange.prevFrom || !compareRange.prevTo)) {
+      showErr('Please select both comparison dates.'); return;
+    }
+    if (compareRange && compareRange.prevFrom > compareRange.prevTo) {
+      showErr('Comparison start date must be before its end date.'); return;
+    }
     hideErr();
     setBusy(true);
 
@@ -820,7 +938,7 @@
     const productParam = chips.length ? `&product=${enc(chips.join(','))}` : '';
     const hardSync     = document.getElementById('hard-sync').checked;
     const syncParam    = hardSync ? '&hard_sync=true' : '';
-    const compareRange = calcCompareRange(from, to);
+    updateComparisonSummary(from, to, compareRange);
 
     try {
       if (reportType === 'lines') {
@@ -1338,7 +1456,6 @@
   function setSubHtml(id, html, cls) { const e = document.getElementById(id); e.innerHTML = html; e.className = 'stat-sub ' + cls; }
   function enc(s) { return encodeURIComponent(s); }
   function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  function iso(d) { return DateRanges.toLocalIso(d); }
   function fmt(n) { return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
   function avatarColor(name) {
@@ -1359,7 +1476,7 @@
   /* ── Keyboard shortcuts ── */
   document.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.target.matches('input,select,textarea,button')) fetchSales();
-    if (e.key === 'Escape') closeDatePanel();
+    if (e.key === 'Escape') { closeDatePanel(); closeComparePanel(); }
   });
 </script>
 </body>

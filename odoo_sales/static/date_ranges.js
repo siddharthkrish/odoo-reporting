@@ -33,5 +33,43 @@
     return { from: toLocalIso(from), to: toLocalIso(to) };
   }
 
-  return { completedPresetRange, currentMonthRange, toLocalIso };
+  function parseLocalIso(value) {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  function previousPeriodRange(from, to) {
+    const start = parseLocalIso(from);
+    const end = parseLocalIso(to);
+    const startDay = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+    const endDay = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
+    const days = Math.round((endDay - startDay) / 86400000) + 1;
+    const prevTo = new Date(start);
+    prevTo.setDate(prevTo.getDate() - 1);
+    const prevFrom = new Date(prevTo);
+    prevFrom.setDate(prevFrom.getDate() - (days - 1));
+    return { prevFrom: toLocalIso(prevFrom), prevTo: toLocalIso(prevTo) };
+  }
+
+  function previousYearDate(date) {
+    const year = date.getFullYear() - 1;
+    const month = date.getMonth();
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    return new Date(year, month, Math.min(date.getDate(), lastDay));
+  }
+
+  function samePeriodPreviousYearRange(from, to) {
+    return {
+      prevFrom: toLocalIso(previousYearDate(parseLocalIso(from))),
+      prevTo: toLocalIso(previousYearDate(parseLocalIso(to))),
+    };
+  }
+
+  return {
+    completedPresetRange,
+    currentMonthRange,
+    previousPeriodRange,
+    samePeriodPreviousYearRange,
+    toLocalIso,
+  };
 });
