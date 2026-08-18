@@ -144,6 +144,28 @@ def lines(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
+@app.get("/api/channels")
+def channels(
+    request: Request,
+    date_from: str = Query(..., alias="from", description="Start date (YYYY-MM-DD)"),
+    date_to: str = Query(..., alias="to", description="End date (YYYY-MM-DD)"),
+    product: str | None = Query(None, description="Comma-separated product/SKU filter chips"),
+    hard_sync: bool = Query(False, description="Reconcile regular sales before combining POS sales"),
+) -> list[dict]:
+    _require_auth(request)
+    try:
+        client = OdooClient.from_env()
+        chips = [c.strip() for c in product.split(",") if c.strip()] if product else None
+        result = client.get_channel_sales_data(
+            date_from, date_to, product_filter=chips, hard_sync=hard_sync
+        )
+        return [order.to_dict() for order in result]
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
 def main() -> None:
     uvicorn.run("odoo_sales.web:app", host="127.0.0.1", port=8000, reload=True)
 

@@ -15,6 +15,7 @@ class FakeClient:
     def __init__(self) -> None:
         self.sales_hard_sync: bool | None = None
         self.lines_hard_sync: bool | None = None
+        self.channels_hard_sync: bool | None = None
 
     def get_sales_data(self, *args, hard_sync: bool = False, **kwargs):
         self.sales_hard_sync = hard_sync
@@ -22,6 +23,10 @@ class FakeClient:
 
     def get_order_lines(self, *args, hard_sync: bool = False, **kwargs):
         self.lines_hard_sync = hard_sync
+        return [Serializable()]
+
+    def get_channel_sales_data(self, *args, hard_sync: bool = False, **kwargs):
+        self.channels_hard_sync = hard_sync
         return [Serializable()]
 
 
@@ -59,6 +64,23 @@ class WebSyncTests(unittest.TestCase):
 
         self.assertEqual(result, [{"ok": True}])
         self.assertTrue(client.lines_hard_sync)
+
+    def test_channels_route_forwards_hard_sync(self) -> None:
+        client = FakeClient()
+        with (
+            patch.object(web, "_require_auth"),
+            patch.object(web.OdooClient, "from_env", return_value=client),
+        ):
+            result = web.channels(
+                object(),
+                date_from="2026-07-01",
+                date_to="2026-07-31",
+                product=None,
+                hard_sync=True,
+            )
+
+        self.assertEqual(result, [{"ok": True}])
+        self.assertTrue(client.channels_hard_sync)
 
 
 if __name__ == "__main__":

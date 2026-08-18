@@ -957,10 +957,11 @@
         lines     = data;
         prevLines = (compareRange && results[1]?.ok) ? await results[1].json() : [];
       } else {
-        const reqs = [fetch(`/api/sales?from=${enc(from)}&to=${enc(to)}${productParam}${syncParam}`)];
+        const endpoint = reportType === 'channels' ? '/api/channels' : '/api/sales';
+        const reqs = [fetch(`${endpoint}?from=${enc(from)}&to=${enc(to)}${productParam}${syncParam}`)];
         if (compareRange) {
           const { prevFrom, prevTo } = compareRange;
-          reqs.push(fetch(`/api/sales?from=${enc(prevFrom)}&to=${enc(prevTo)}${productParam}`));
+          reqs.push(fetch(`${endpoint}?from=${enc(prevFrom)}&to=${enc(prevTo)}${productParam}`));
         }
         const results = await Promise.all(reqs);
         const data    = await results[0].json();
