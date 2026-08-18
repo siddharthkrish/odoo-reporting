@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import xmlrpc.client
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Iterable, cast
 
@@ -490,6 +490,24 @@ class OdooClient:
         ))
         return [_pos_order_from_record(record) for record in records]
 
+    def _fetch_amazon_fee_order_ids(
+        self,
+        date_from_dt: datetime,
+        date_to_dt: datetime,
+    ) -> set[int]:
+        uid = self.authenticate()
+        domain: list[Any] = [
+            ("date_order", ">=", _odoo_datetime_str(date_from_dt)),
+            ("date_order", "<=", _odoo_datetime_str(date_to_dt)),
+            ("order_line.product_id.name", "ilike", "Amazon Shipping Fee"),
+        ]
+        records = cast(list[dict[str, Any]], self._models().execute_kw(
+            self.db, uid, self.password,
+            "sale.order", "search_read", [domain],
+            {"fields": ["id"]},
+        ))
+        return {int(record["id"]) for record in records}
+
     # ── Public API ─────────────────────────────────────────────────────────────
 
     def get_sales_data(
@@ -605,6 +623,12 @@ class OdooClient:
             product_filter=chips,
             hard_sync=hard_sync,
         )
+        if orders:
+            amazon_order_ids = self._fetch_amazon_fee_order_ids(date_from_dt, date_to_dt)
+            orders = [
+                replace(order, channel="Amazon") if order.id in amazon_order_ids else order
+                for order in orders
+            ]
         orders.extend(self._fetch_pos_orders_direct(date_from_dt, date_to_dt, chips))
         orders.sort(key=lambda order: order.date_order)
         return orders
